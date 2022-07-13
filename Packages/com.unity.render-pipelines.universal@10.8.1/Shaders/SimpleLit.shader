@@ -4,52 +4,52 @@ Shader "Universal Render Pipeline/Simple Lit"
     // Keep properties of StandardSpecular shader for upgrade reasons.
     Properties
     {
-        [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
-        [MainColor]   _BaseColor("Base Color", Color) = (1, 1, 1, 1)
+        [MainTexture] _BaseMap ("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" { }
+        [MainColor]   _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
 
-        _Cutoff("Alpha Clipping", Range(0.0, 1.0)) = 0.5
+        _Cutoff ("Alpha Clipping", Range(0.0, 1.0)) = 0.5
 
-        _SpecColor("Specular Color", Color) = (0.5, 0.5, 0.5, 0.5)
-        _SpecGlossMap("Specular Map", 2D) = "white" {}
-        [Enum(Specular Alpha,0,Albedo Alpha,1)] _SmoothnessSource("Smoothness Source", Float) = 0.0
-        [ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
+        _SpecColor ("Specular Color", Color) = (0.5, 0.5, 0.5, 0.5)
+        _SpecGlossMap ("Specular Map", 2D) = "white" { }
+        [Enum(Specular Alpha, 0, Albedo Alpha, 1)] _SmoothnessSource ("Smoothness Source", Float) = 0.0
+        [ToggleOff] _SpecularHighlights ("Specular Highlights", Float) = 1.0
 
-        [HideInInspector] _BumpScale("Scale", Float) = 1.0
-        [NoScaleOffset] _BumpMap("Normal Map", 2D) = "bump" {}
+        [HideInInspector] _BumpScale ("Scale", Float) = 1.0
+        [NoScaleOffset] _BumpMap ("Normal Map", 2D) = "bump" { }
 
-        [HDR] _EmissionColor("Emission Color", Color) = (0,0,0)
-        [NoScaleOffset]_EmissionMap("Emission Map", 2D) = "white" {}
+        [HDR] _EmissionColor ("Emission Color", Color) = (0, 0, 0)
+        [NoScaleOffset]_EmissionMap ("Emission Map", 2D) = "white" { }
 
         // Blending state
-        [HideInInspector] _Surface("__surface", Float) = 0.0
-        [HideInInspector] _Blend("__blend", Float) = 0.0
-        [HideInInspector] _AlphaClip("__clip", Float) = 0.0
-        [HideInInspector] _SrcBlend("__src", Float) = 1.0
-        [HideInInspector] _DstBlend("__dst", Float) = 0.0
-        [HideInInspector] _ZWrite("__zw", Float) = 1.0
-        [HideInInspector] _Cull("__cull", Float) = 2.0
+        [HideInInspector] _Surface ("__surface", Float) = 0.0
+        [HideInInspector] _Blend ("__blend", Float) = 0.0
+        [HideInInspector] _AlphaClip ("__clip", Float) = 0.0
+        [HideInInspector] _SrcBlend ("__src", Float) = 1.0
+        [HideInInspector] _DstBlend ("__dst", Float) = 0.0
+        [HideInInspector] _ZWrite ("__zw", Float) = 1.0
+        [HideInInspector] _Cull ("__cull", Float) = 2.0
 
-        [ToggleOff] _ReceiveShadows("Receive Shadows", Float) = 1.0
+        [ToggleOff] _ReceiveShadows ("Receive Shadows", Float) = 1.0
 
         // Editmode props
-        [HideInInspector] _QueueOffset("Queue offset", Float) = 0.0
-        [HideInInspector] _Smoothness("Smoothness", Float) = 0.5
+        [HideInInspector] _QueueOffset ("Queue offset", Float) = 0.0
+        [HideInInspector] _Smoothness ("Smoothness", Float) = 0.5
 
         // ObsoleteProperties
-        [HideInInspector] _MainTex("BaseMap", 2D) = "white" {}
-        [HideInInspector] _Color("Base Color", Color) = (1, 1, 1, 1)
-        [HideInInspector] _Shininess("Smoothness", Float) = 0.0
-        [HideInInspector] _GlossinessSource("GlossinessSource", Float) = 0.0
-        [HideInInspector] _SpecSource("SpecularHighlights", Float) = 0.0
+        [HideInInspector] _MainTex ("BaseMap", 2D) = "white" { }
+        [HideInInspector] _Color ("Base Color", Color) = (1, 1, 1, 1)
+        [HideInInspector] _Shininess ("Smoothness", Float) = 0.0
+        [HideInInspector] _GlossinessSource ("GlossinessSource", Float) = 0.0
+        [HideInInspector] _SpecSource ("SpecularHighlights", Float) = 0.0
 
-        [HideInInspector][NoScaleOffset]unity_Lightmaps("unity_Lightmaps", 2DArray) = "" {}
-        [HideInInspector][NoScaleOffset]unity_LightmapsInd("unity_LightmapsInd", 2DArray) = "" {}
-        [HideInInspector][NoScaleOffset]unity_ShadowMasks("unity_ShadowMasks", 2DArray) = "" {}
+        [HideInInspector][NoScaleOffset]unity_Lightmaps ("unity_Lightmaps", 2DArray) = "" { }
+        [HideInInspector][NoScaleOffset]unity_LightmapsInd ("unity_LightmapsInd", 2DArray) = "" { }
+        [HideInInspector][NoScaleOffset]unity_ShadowMasks ("unity_ShadowMasks", 2DArray) = "" { }
     }
 
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "UniversalMaterialType" = "SimpleLit" "IgnoreProjector" = "True" "ShaderModel"="4.5"}
+        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "UniversalMaterialType" = "SimpleLit" "IgnoreProjector" = "True" "ShaderModel" = "4.5" }
         LOD 300
 
         Pass
@@ -63,6 +63,7 @@ Shader "Universal Render Pipeline/Simple Lit"
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma exclude_renderers gles gles3 glcore
             #pragma target 4.5
 
@@ -105,12 +106,13 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitForwardPass.hlsl"
             ENDHLSL
+
         }
 
         Pass
         {
             Name "ShadowCaster"
-            Tags{"LightMode" = "ShadowCaster"}
+            Tags { "LightMode" = "ShadowCaster" }
 
             ZWrite On
             ZTest LEqual
@@ -118,6 +120,7 @@ Shader "Universal Render Pipeline/Simple Lit"
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma exclude_renderers gles gles3 glcore
             #pragma target 4.5
 
@@ -137,18 +140,20 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
             ENDHLSL
+
         }
 
         Pass
         {
             Name "GBuffer"
-            Tags{"LightMode" = "UniversalGBuffer"}
+            Tags { "LightMode" = "UniversalGBuffer" }
 
             ZWrite[_ZWrite]
             ZTest LEqual
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma exclude_renderers gles gles3 glcore
             #pragma target 4.5
 
@@ -189,18 +194,20 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitGBufferPass.hlsl"
             ENDHLSL
+
         }
 
         Pass
         {
             Name "DepthOnly"
-            Tags{"LightMode" = "DepthOnly"}
+            Tags { "LightMode" = "DepthOnly" }
 
             ZWrite On
             ColorMask 0
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma exclude_renderers gles gles3 glcore
             #pragma target 4.5
 
@@ -220,18 +227,20 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
             ENDHLSL
+
         }
 
         // This pass is used when drawing to a _CameraNormalsTexture texture
         Pass
         {
             Name "DepthNormals"
-            Tags{"LightMode" = "DepthNormals"}
+            Tags { "LightMode" = "DepthNormals" }
 
             ZWrite On
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma exclude_renderers gles gles3 glcore
             #pragma target 4.5
 
@@ -252,17 +261,19 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthNormalsPass.hlsl"
             ENDHLSL
+
         }
 
         // This pass it not used during regular rendering, only for lightmap baking.
         Pass
         {
             Name "Meta"
-            Tags{ "LightMode" = "Meta" }
+            Tags { "LightMode" = "Meta" }
 
             Cull Off
 
             HLSLPROGRAM
+
             #pragma exclude_renderers gles gles3 glcore
             #pragma target 4.5
 
@@ -276,31 +287,13 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitMetaPass.hlsl"
 
             ENDHLSL
-        }
-        Pass
-        {
-            Name "Universal2D"
-            Tags{ "LightMode" = "Universal2D" }
-            Tags{ "RenderType" = "Transparent" "Queue" = "Transparent" }
 
-            HLSLPROGRAM
-            #pragma exclude_renderers gles gles3 glcore
-            #pragma target 4.5
-
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma shader_feature_local_fragment _ALPHATEST_ON
-            #pragma shader_feature_local_fragment _ALPHAPREMULTIPLY_ON
-
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Universal2D.hlsl"
-            ENDHLSL
         }
     }
 
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "UniversalMaterialType" = "SimpleLit" "IgnoreProjector" = "True" "ShaderModel"="2.0"}
+        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "UniversalMaterialType" = "SimpleLit" "IgnoreProjector" = "True" "ShaderModel" = "2.0" }
         LOD 300
 
         Pass
@@ -314,6 +307,7 @@ Shader "Universal Render Pipeline/Simple Lit"
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 2.0
 
@@ -352,12 +346,13 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitForwardPass.hlsl"
             ENDHLSL
+
         }
 
         Pass
         {
             Name "ShadowCaster"
-            Tags{"LightMode" = "ShadowCaster"}
+            Tags { "LightMode" = "ShadowCaster" }
 
             ZWrite On
             ZTest LEqual
@@ -365,6 +360,7 @@ Shader "Universal Render Pipeline/Simple Lit"
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 2.0
 
@@ -379,18 +375,20 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
             ENDHLSL
+
         }
 
         Pass
         {
             Name "DepthOnly"
-            Tags{"LightMode" = "DepthOnly"}
+            Tags { "LightMode" = "DepthOnly" }
 
             ZWrite On
             ColorMask 0
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 2.0
 
@@ -404,18 +402,20 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
             ENDHLSL
+
         }
 
         // This pass is used when drawing to a _CameraNormalsTexture texture
         Pass
         {
             Name "DepthNormals"
-            Tags{"LightMode" = "DepthNormals"}
+            Tags { "LightMode" = "DepthNormals" }
 
             ZWrite On
             Cull[_Cull]
 
             HLSLPROGRAM
+
             #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 2.0
 
@@ -435,17 +435,19 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthNormalsPass.hlsl"
             ENDHLSL
+
         }
 
         // This pass it not used during regular rendering, only for lightmap baking.
         Pass
         {
             Name "Meta"
-            Tags{ "LightMode" = "Meta" }
+            Tags { "LightMode" = "Meta" }
 
             Cull Off
 
             HLSLPROGRAM
+
             #pragma only_renderers gles gles3 glcore d3d11
             #pragma target 2.0
 
@@ -459,25 +461,7 @@ Shader "Universal Render Pipeline/Simple Lit"
             #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitMetaPass.hlsl"
 
             ENDHLSL
-        }
-        Pass
-        {
-            Name "Universal2D"
-            Tags{ "LightMode" = "Universal2D" }
-            Tags{ "RenderType" = "Transparent" "Queue" = "Transparent" }
 
-            HLSLPROGRAM
-            #pragma only_renderers gles gles3 glcore d3d11
-            #pragma target 2.0
-
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma shader_feature_local_fragment _ALPHATEST_ON
-            #pragma shader_feature_local_fragment _ALPHAPREMULTIPLY_ON
-
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Universal2D.hlsl"
-            ENDHLSL
         }
     }
     Fallback "Hidden/Universal Render Pipeline/FallbackError"
