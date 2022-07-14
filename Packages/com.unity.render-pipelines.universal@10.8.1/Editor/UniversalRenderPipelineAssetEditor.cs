@@ -7,7 +7,7 @@ using UnityEditorInternal;
 namespace UnityEditor.Rendering.Universal
 {
     [CustomEditor(typeof(UniversalRenderPipelineAsset)), CanEditMultipleObjects]
-    [MovedFrom("UnityEditor.Rendering.LWRP")] public class UniversalRenderPipelineAssetEditor : Editor
+    public class UniversalRenderPipelineAssetEditor : Editor
     {
         internal class Styles
         {
@@ -28,6 +28,7 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent rendererMissingText = EditorGUIUtility.TrIconContent("console.warnicon.sml", "Renderer missing. Click this to select a new renderer.");
             public static GUIContent rendererDefaultMissingText = EditorGUIUtility.TrIconContent("console.erroricon.sml", "Default renderer missing. Click this to select a new renderer.");
             public static GUIContent requireDepthTextureText = EditorGUIUtility.TrTextContent("Depth Texture", "If enabled the pipeline will generate camera's depth that can be bound in shaders as _CameraDepthTexture.");
+            public static GUIContent requireDepthNormalsTextureText = EditorGUIUtility.TrTextContent("Depth Normals Texture", "If enabled the pipeline will generate camera's depthNormals that can be bound in shaders as _CameraDepthNormalsTexture.");
             public static GUIContent requireOpaqueTextureText = EditorGUIUtility.TrTextContent("Opaque Texture", "If enabled the pipeline will copy the screen to texture after opaque objects are drawn. For transparent objects this can be bound in shaders as _CameraOpaqueTexture.");
             public static GUIContent opaqueDownsamplingText = EditorGUIUtility.TrTextContent("Opaque Downsampling", "The downsampling method that is used for the opaque texture");
             public static GUIContent supportsTerrainHolesText = EditorGUIUtility.TrTextContent("Terrain Holes", "When disabled, Universal Rendering Pipeline removes all Terrain hole Shader variants when you build for the Unity Player. This decreases build time.");
@@ -89,7 +90,7 @@ namespace UnityEditor.Rendering.Universal
             // Dropdown menu options
             public static string[] mainLightOptions = { "Disabled", "Per Pixel" };
             public static string[] volumeFrameworkUpdateOptions = { "Every Frame", "Via Scripting" };
-            public static string[] opaqueDownsamplingOptions = {"None", "2x (Bilinear)", "4x (Box)", "4x (Bilinear)"};
+            public static string[] opaqueDownsamplingOptions = { "None", "2x (Bilinear)", "4x (Box)", "4x (Bilinear)" };
         }
 
         SavedBool m_GeneralSettingsFoldout;
@@ -105,6 +106,7 @@ namespace UnityEditor.Rendering.Universal
         ReorderableList m_RendererDataList;
 
         SerializedProperty m_RequireDepthTextureProp;
+        SerializedProperty m_RequireDepthNormalsTextureProp;
         SerializedProperty m_RequireOpaqueTextureProp;
         SerializedProperty m_OpaqueDownsamplingProp;
         SerializedProperty m_SupportsTerrainHolesProp;
@@ -182,6 +184,7 @@ namespace UnityEditor.Rendering.Universal
             DrawRendererListLayout(m_RendererDataList, m_RendererDataProp);
 
             m_RequireDepthTextureProp = serializedObject.FindProperty("m_RequireDepthTexture");
+            m_RequireDepthNormalsTextureProp = serializedObject.FindProperty("m_RequireDepthNormalsTexture");
             m_RequireOpaqueTextureProp = serializedObject.FindProperty("m_RequireOpaqueTexture");
             m_OpaqueDownsamplingProp = serializedObject.FindProperty("m_OpaqueDownsampling");
             m_SupportsTerrainHolesProp = serializedObject.FindProperty("m_SupportsTerrainHoles");
@@ -253,6 +256,7 @@ namespace UnityEditor.Rendering.Universal
                     EditorGUILayout.HelpBox(Styles.rendererUnsupportedAPIMessage.text + unsupportedGraphicsApisMessage, MessageType.Warning, true);
 
                 EditorGUILayout.PropertyField(m_RequireDepthTextureProp, Styles.requireDepthTextureText);
+                EditorGUILayout.PropertyField(m_RequireDepthNormalsTextureProp, Styles.requireDepthNormalsTextureText);
                 EditorGUILayout.PropertyField(m_RequireOpaqueTextureProp, Styles.requireOpaqueTextureText);
                 EditorGUI.indentLevel++;
                 EditorGUI.BeginDisabledGroup(!m_RequireOpaqueTextureProp.boolValue);
@@ -446,54 +450,54 @@ namespace UnityEditor.Rendering.Universal
 
         void DrawRendererListLayout(ReorderableList list, SerializedProperty prop)
         {
-           list.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
-            {
-                rect.y += 2;
-                Rect indexRect = new Rect(rect.x, rect.y, 14, EditorGUIUtility.singleLineHeight);
-                EditorGUI.LabelField(indexRect, index.ToString());
-                Rect objRect = new Rect(rect.x + indexRect.width, rect.y, rect.width - 134, EditorGUIUtility.singleLineHeight);
+            list.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+             {
+                 rect.y += 2;
+                 Rect indexRect = new Rect(rect.x, rect.y, 14, EditorGUIUtility.singleLineHeight);
+                 EditorGUI.LabelField(indexRect, index.ToString());
+                 Rect objRect = new Rect(rect.x + indexRect.width, rect.y, rect.width - 134, EditorGUIUtility.singleLineHeight);
 
-                EditorGUI.BeginChangeCheck();
-                EditorGUI.ObjectField(objRect, prop.GetArrayElementAtIndex(index), GUIContent.none);
-                if (EditorGUI.EndChangeCheck())
-                    EditorUtility.SetDirty(target);
+                 EditorGUI.BeginChangeCheck();
+                 EditorGUI.ObjectField(objRect, prop.GetArrayElementAtIndex(index), GUIContent.none);
+                 if (EditorGUI.EndChangeCheck())
+                     EditorUtility.SetDirty(target);
 
-                Rect defaultButton = new Rect(rect.width - 75, rect.y, 86, EditorGUIUtility.singleLineHeight);
-                var defaultRenderer = m_DefaultRendererProp.intValue;
-                GUI.enabled = index != defaultRenderer;
-                if (GUI.Button(defaultButton, !GUI.enabled ? Styles.rendererDefaultText : Styles.rendererSetDefaultText))
-                {
-                    m_DefaultRendererProp.intValue = index;
-                    EditorUtility.SetDirty(target);
-                }
-                GUI.enabled = true;
+                 Rect defaultButton = new Rect(rect.width - 75, rect.y, 86, EditorGUIUtility.singleLineHeight);
+                 var defaultRenderer = m_DefaultRendererProp.intValue;
+                 GUI.enabled = index != defaultRenderer;
+                 if (GUI.Button(defaultButton, !GUI.enabled ? Styles.rendererDefaultText : Styles.rendererSetDefaultText))
+                 {
+                     m_DefaultRendererProp.intValue = index;
+                     EditorUtility.SetDirty(target);
+                 }
+                 GUI.enabled = true;
 
-                Rect selectRect = new Rect(rect.x + rect.width - 24, rect.y, 24, EditorGUIUtility.singleLineHeight);
+                 Rect selectRect = new Rect(rect.x + rect.width - 24, rect.y, 24, EditorGUIUtility.singleLineHeight);
 
-                UniversalRenderPipelineAsset asset = target as UniversalRenderPipelineAsset;
+                 UniversalRenderPipelineAsset asset = target as UniversalRenderPipelineAsset;
 
-                if (asset.ValidateRendererData(index))
-                {
-                    if (GUI.Button(selectRect, Styles.rendererSettingsText))
-                    {
-                        Selection.SetActiveObjectWithContext(prop.GetArrayElementAtIndex(index).objectReferenceValue,
-                            null);
-                    }
-                }
-                else // Missing ScriptableRendererData
-                {
-                    if (GUI.Button(selectRect, index == defaultRenderer ? Styles.rendererDefaultMissingText : Styles.rendererMissingText))
-                    {
-                        EditorGUIUtility.ShowObjectPicker<ScriptableRendererData>(null, false, null, index);
-                    }
-                }
+                 if (asset.ValidateRendererData(index))
+                 {
+                     if (GUI.Button(selectRect, Styles.rendererSettingsText))
+                     {
+                         Selection.SetActiveObjectWithContext(prop.GetArrayElementAtIndex(index).objectReferenceValue,
+                             null);
+                     }
+                 }
+                 else // Missing ScriptableRendererData
+                 {
+                     if (GUI.Button(selectRect, index == defaultRenderer ? Styles.rendererDefaultMissingText : Styles.rendererMissingText))
+                     {
+                         EditorGUIUtility.ShowObjectPicker<ScriptableRendererData>(null, false, null, index);
+                     }
+                 }
 
-                // If object selector chose an object, assign it to the correct ScriptableRendererData slot.
-                if (Event.current.commandName == "ObjectSelectorUpdated" && EditorGUIUtility.GetObjectPickerControlID() == index)
-                {
-                    prop.GetArrayElementAtIndex(index).objectReferenceValue = EditorGUIUtility.GetObjectPickerObject();
-                }
-            };
+                 // If object selector chose an object, assign it to the correct ScriptableRendererData slot.
+                 if (Event.current.commandName == "ObjectSelectorUpdated" && EditorGUIUtility.GetObjectPickerControlID() == index)
+                 {
+                     prop.GetArrayElementAtIndex(index).objectReferenceValue = EditorGUIUtility.GetObjectPickerObject();
+                 }
+             };
 
             list.drawHeaderCallback = (Rect rect) =>
             {

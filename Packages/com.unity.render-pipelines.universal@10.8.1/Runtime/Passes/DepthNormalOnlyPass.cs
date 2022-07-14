@@ -37,7 +37,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             depthDescriptor = baseDescriptor;
 
             this.normalHandle = normalHandle;
-            baseDescriptor.colorFormat = RenderTextureFormat.RGHalf;
+            baseDescriptor.colorFormat = RenderTextureFormat.ARGB32;
             baseDescriptor.depthBufferBits = 0;
             baseDescriptor.msaaSamples = 1;
             normalDescriptor = baseDescriptor;
@@ -52,7 +52,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 new RenderTargetIdentifier(normalHandle.Identifier(), 0, CubemapFace.Unknown, -1),
                 new RenderTargetIdentifier(depthHandle.Identifier(), 0, CubemapFace.Unknown, -1)
                 );
-            ConfigureClear(ClearFlag.All, Color.black);
+            //原來是Color.Black 改为new Color(0, 0, 1, 0) 才能获得正确的天空盒深度
+            ConfigureClear(ClearFlag.All, new Color(0, 0, 1, 0));
         }
 
         /// <inheritdoc/>

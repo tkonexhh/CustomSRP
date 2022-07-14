@@ -144,9 +144,10 @@ namespace UnityEngine.Rendering.Universal
 
         // General settings
         [SerializeField] bool m_RequireDepthTexture = false;
+        [SerializeField] bool m_RequireDepthNormalsTexture = false;
         [SerializeField] bool m_RequireOpaqueTexture = false;
         [SerializeField] Downsampling m_OpaqueDownsampling = Downsampling._2xBilinear;
-        [SerializeField] bool m_SupportsTerrainHoles = true;
+        [SerializeField] bool m_SupportsTerrainHoles = false;
         [SerializeField] StoreActionsOptimization m_StoreActionsOptimization = StoreActionsOptimization.Auto;
 
         // Quality settings
@@ -519,6 +520,12 @@ namespace UnityEngine.Rendering.Universal
         {
             get { return m_RequireDepthTexture; }
             set { m_RequireDepthTexture = value; }
+        }
+
+        public bool supportsCameraDepthNormalsTexture
+        {
+            get { return m_RequireDepthNormalsTexture; }
+            set { m_RequireDepthNormalsTexture = value; }
         }
 
         public bool supportsCameraOpaqueTexture
