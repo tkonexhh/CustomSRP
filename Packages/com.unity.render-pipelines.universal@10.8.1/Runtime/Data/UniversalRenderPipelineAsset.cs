@@ -145,12 +145,14 @@ namespace UnityEngine.Rendering.Universal
         // General settings
         [SerializeField] bool m_RequireDepthTexture = false;
         [SerializeField] bool m_RequireDepthNormalsTexture = false;
+        [SerializeField] int m_DepthDownsampling = 0;
         [SerializeField] bool m_RequireOpaqueTexture = false;
         [SerializeField] Downsampling m_OpaqueDownsampling = Downsampling._2xBilinear;
         [SerializeField] bool m_SupportsTerrainHoles = false;
         [SerializeField] StoreActionsOptimization m_StoreActionsOptimization = StoreActionsOptimization.Auto;
 
         // Quality settings
+
         [SerializeField] bool m_SupportsHDR = true;
         [SerializeField] MsaaQuality m_MSAA = MsaaQuality.Disabled;
         [SerializeField] float m_RenderScale = 1.0f;
@@ -528,6 +530,11 @@ namespace UnityEngine.Rendering.Universal
             set { m_RequireDepthNormalsTexture = value; }
         }
 
+        public int DepthDownsampling
+        {
+            get { return m_DepthDownsampling; }
+        }
+
         public bool supportsCameraOpaqueTexture
         {
             get { return m_RequireOpaqueTexture; }
@@ -553,6 +560,9 @@ namespace UnityEngine.Rendering.Universal
             get { return m_StoreActionsOptimization; }
             set { m_StoreActionsOptimization = value; }
         }
+
+
+
 
         public bool supportsHDR
         {

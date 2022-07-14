@@ -31,14 +31,13 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// <summary>
         /// Configure the pass
         /// </summary>
-        public void Setup(
-            RenderTextureDescriptor baseDescriptor,
-            RenderTargetHandle depthAttachmentHandle)
+        public void Setup(RenderTextureDescriptor baseDescriptor, RenderTargetHandle depthAttachmentHandle)
         {
             this.depthAttachmentHandle = depthAttachmentHandle;
             baseDescriptor.colorFormat = RenderTextureFormat.Depth;
             baseDescriptor.depthBufferBits = kDepthBufferBits;
-
+            baseDescriptor.width = baseDescriptor.width >> UniversalRenderPipeline.asset.DepthDownsampling;
+            baseDescriptor.height = baseDescriptor.height >> UniversalRenderPipeline.asset.DepthDownsampling;
             // Depth-Only pass don't use MSAA
             baseDescriptor.msaaSamples = 1;
             descriptor = baseDescriptor;

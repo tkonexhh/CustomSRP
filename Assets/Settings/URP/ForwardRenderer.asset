@@ -29,6 +29,9 @@ MonoBehaviour:
   m_OpaqueLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  m_TerrainLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
   m_TransparentLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -40,8 +43,6 @@ MonoBehaviour:
     failOperation: 0
     zFailOperation: 0
   m_ShadowTransparentReceive: 1
-  m_RenderingMode: 0
-  m_AccurateGbufferNormals: 0
 --- !u!114 &96800424088695038
 MonoBehaviour:
   m_ObjectHideFlags: 0

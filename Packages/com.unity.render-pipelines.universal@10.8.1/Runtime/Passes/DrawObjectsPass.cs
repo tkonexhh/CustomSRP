@@ -15,7 +15,6 @@ namespace UnityEngine.Rendering.Universal.Internal
         FilteringSettings m_FilteringSettings;
         RenderStateBlock m_RenderStateBlock;
         List<ShaderTagId> m_ShaderTagIdList = new List<ShaderTagId>();
-        string m_ProfilerTag;
         ProfilingSampler m_ProfilingSampler;
         bool m_IsOpaque;
 
@@ -25,9 +24,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         {
             base.profilingSampler = new ProfilingSampler(nameof(DrawObjectsPass));
 
-            m_ProfilerTag = profilerTag;
             m_ProfilingSampler = new ProfilingSampler(profilerTag);
-
 
             m_ShaderTagIdList.Add(new ShaderTagId("UniversalForward"));
             m_ShaderTagIdList.Add(new ShaderTagId("UniversalForwardOnly"));

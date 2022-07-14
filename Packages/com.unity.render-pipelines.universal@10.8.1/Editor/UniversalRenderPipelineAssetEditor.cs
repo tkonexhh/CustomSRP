@@ -29,11 +29,13 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent rendererDefaultMissingText = EditorGUIUtility.TrIconContent("console.erroricon.sml", "Default renderer missing. Click this to select a new renderer.");
             public static GUIContent requireDepthTextureText = EditorGUIUtility.TrTextContent("Depth Texture", "If enabled the pipeline will generate camera's depth that can be bound in shaders as _CameraDepthTexture.");
             public static GUIContent requireDepthNormalsTextureText = EditorGUIUtility.TrTextContent("Depth Normals Texture", "If enabled the pipeline will generate camera's depthNormals that can be bound in shaders as _CameraDepthNormalsTexture.");
+            public static GUIContent depthDownsamplingText = EditorGUIUtility.TrTextContent("Depth Downsampling", "The downsampling method that is used for the depth texture");
             public static GUIContent requireOpaqueTextureText = EditorGUIUtility.TrTextContent("Opaque Texture", "If enabled the pipeline will copy the screen to texture after opaque objects are drawn. For transparent objects this can be bound in shaders as _CameraOpaqueTexture.");
             public static GUIContent opaqueDownsamplingText = EditorGUIUtility.TrTextContent("Opaque Downsampling", "The downsampling method that is used for the opaque texture");
             public static GUIContent supportsTerrainHolesText = EditorGUIUtility.TrTextContent("Terrain Holes", "When disabled, Universal Rendering Pipeline removes all Terrain hole Shader variants when you build for the Unity Player. This decreases build time.");
 
             // Quality
+
             public static GUIContent hdrText = EditorGUIUtility.TrTextContent("HDR", "Controls the global HDR settings.");
             public static GUIContent msaaText = EditorGUIUtility.TrTextContent("Anti Aliasing (MSAA)", "Controls the global anti aliasing settings.");
             public static GUIContent renderScaleText = EditorGUIUtility.TrTextContent("Render Scale", "Scales the camera render target allowing the game to render at a resolution different than native resolution. UI is always rendered at native resolution.");
@@ -107,10 +109,13 @@ namespace UnityEditor.Rendering.Universal
 
         SerializedProperty m_RequireDepthTextureProp;
         SerializedProperty m_RequireDepthNormalsTextureProp;
+        SerializedProperty m_DepthDownsamplingProp;
         SerializedProperty m_RequireOpaqueTextureProp;
         SerializedProperty m_OpaqueDownsamplingProp;
         SerializedProperty m_SupportsTerrainHolesProp;
         SerializedProperty m_StoreActionsOptimizationProperty;
+
+        //Quality
 
         SerializedProperty m_HDR;
         SerializedProperty m_MSAA;
@@ -185,9 +190,11 @@ namespace UnityEditor.Rendering.Universal
 
             m_RequireDepthTextureProp = serializedObject.FindProperty("m_RequireDepthTexture");
             m_RequireDepthNormalsTextureProp = serializedObject.FindProperty("m_RequireDepthNormalsTexture");
+            m_DepthDownsamplingProp = serializedObject.FindProperty("m_DepthDownsampling");
             m_RequireOpaqueTextureProp = serializedObject.FindProperty("m_RequireOpaqueTexture");
             m_OpaqueDownsamplingProp = serializedObject.FindProperty("m_OpaqueDownsampling");
             m_SupportsTerrainHolesProp = serializedObject.FindProperty("m_SupportsTerrainHoles");
+
 
             m_HDR = serializedObject.FindProperty("m_SupportsHDR");
             m_MSAA = serializedObject.FindProperty("m_MSAA");
@@ -256,7 +263,16 @@ namespace UnityEditor.Rendering.Universal
                     EditorGUILayout.HelpBox(Styles.rendererUnsupportedAPIMessage.text + unsupportedGraphicsApisMessage, MessageType.Warning, true);
 
                 EditorGUILayout.PropertyField(m_RequireDepthTextureProp, Styles.requireDepthTextureText);
-                EditorGUILayout.PropertyField(m_RequireDepthNormalsTextureProp, Styles.requireDepthNormalsTextureText);
+                //只有勾上Depth的情况才显示DepthNormal
+                {
+                    EditorGUI.BeginDisabledGroup(!m_RequireDepthTextureProp.boolValue);
+                    EditorGUILayout.PropertyField(m_RequireDepthNormalsTextureProp, Styles.requireDepthNormalsTextureText);
+                    EditorGUI.indentLevel++;
+                    m_DepthDownsamplingProp.intValue = (int)EditorGUILayout.Slider(Styles.depthDownsamplingText, m_DepthDownsamplingProp.intValue, 0, 2);
+                    EditorGUI.indentLevel--;
+                    EditorGUI.EndDisabledGroup();
+                }
+
                 EditorGUILayout.PropertyField(m_RequireOpaqueTextureProp, Styles.requireOpaqueTextureText);
                 EditorGUI.indentLevel++;
                 EditorGUI.BeginDisabledGroup(!m_RequireOpaqueTextureProp.boolValue);

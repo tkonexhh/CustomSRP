@@ -205,26 +205,7 @@ namespace UnityEngine.Rendering.Universal
         public Unity.Mathematics.float4 planeTop;
     }
 
-    // Actual tile data passed to the deferred shaders.
-    public struct TileData
-    {
-        public uint tileID;         // 2x 16 bits
-        public uint listBitMask;    // 32 bits
-        public uint relLightOffset; // 16 bits is enough
-        public uint unused;
-    }
 
-    // Actual point/spot light data passed to the deferred shaders.
-    public struct PunctualLightData
-    {
-        public Vector3 wsPos;
-        public float radius; // TODO remove? included in attenuation
-        public Vector4 color;
-        public Vector4 attenuation; // .xy are used by DistanceAttenuation - .zw are used by AngleAttenuation (for SpotLights)
-        public Vector3 spotDirection;   // for spotLights
-        public int lightIndex;
-        public Vector4 occlusionProbeInfo;
-    }
 
     internal static class ShaderPropertyId
     {

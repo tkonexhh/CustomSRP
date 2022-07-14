@@ -31,6 +31,8 @@ namespace UnityEngine.Rendering.Universal.Internal
         public void Setup(RenderTextureDescriptor baseDescriptor, RenderTargetHandle depthHandle, RenderTargetHandle normalHandle)
         {
             this.depthHandle = depthHandle;
+            baseDescriptor.width = baseDescriptor.width >> UniversalRenderPipeline.asset.DepthDownsampling;
+            baseDescriptor.height = baseDescriptor.height >> UniversalRenderPipeline.asset.DepthDownsampling;
             baseDescriptor.colorFormat = RenderTextureFormat.Depth;
             baseDescriptor.depthBufferBits = k_DepthBufferBits;
             baseDescriptor.msaaSamples = 1;// Depth-Only pass don't use MSAA
