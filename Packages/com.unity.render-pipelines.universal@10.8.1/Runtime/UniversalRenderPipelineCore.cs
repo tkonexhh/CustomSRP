@@ -106,6 +106,7 @@ namespace UnityEngine.Rendering.Universal
         public bool requiresDepthTexture;
         public bool requiresDepthNormalsTexture;
         public bool requiresOpaqueTexture;
+        public bool isUICamera;//是否是UI相机
 
         internal bool requireSrgbConversion
         {

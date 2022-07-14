@@ -426,16 +426,7 @@ namespace UnityEngine.Rendering.Universal
                             continue;
                         }
 
-                        // var currCameraRendererType = data?.scriptableRenderer.GetType();
-                        // if (currCameraRendererType != baseCameraRendererType)
-                        // {
-                        //     var renderer2DType = typeof(Experimental.Rendering.Universal.Renderer2D);
-                        //     if (currCameraRendererType != renderer2DType && baseCameraRendererType != renderer2DType)
-                        //     {
-                        //         Debug.LogWarning(string.Format("Only cameras with compatible renderer types can be stacked. {0} will skip rendering", currCamera.name));
-                        //         continue;
-                        //     }
-                        // }
+
 
                         anyPostProcessingEnabled |= data.renderPostProcessing;
                         lastActiveOverlayCameraIndex = i;
@@ -489,6 +480,15 @@ namespace UnityEngine.Rendering.Universal
                     {
                         // Copy base settings from base camera data and initialize initialize remaining specific settings for this camera type.
                         CameraData overlayCameraData = baseCameraData;
+
+                        bool isUICamera = false;
+                        if (currCamera.CompareTag("UICamera"))
+                        {
+                            isUICamera = true;
+                        }
+                        overlayCameraData.isUICamera = isUICamera;
+
+
                         bool lastCamera = i == lastActiveOverlayCameraIndex;
 
                         using (new ProfilingScope(null, Profiling.Pipeline.beginCameraRendering))

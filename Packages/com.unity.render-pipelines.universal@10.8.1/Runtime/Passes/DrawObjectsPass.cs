@@ -26,6 +26,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             m_ProfilingSampler = new ProfilingSampler(profilerTag);
 
+            m_ShaderTagIdList.Add(new ShaderTagId("SRPDefaultUnlit"));//UI 默认就使用这个 去掉这个ShdaerTag UI会不渲染
             m_ShaderTagIdList.Add(new ShaderTagId("UniversalForward"));
             m_ShaderTagIdList.Add(new ShaderTagId("UniversalForwardOnly"));
 
