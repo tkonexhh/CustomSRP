@@ -10,8 +10,7 @@ namespace UnityEngine.Rendering.Universal
     {
         /// <summary>Render all objects and lighting in one pass, with a hard limit on the number of lights that can be applied on an object.</summary>
         Forward,
-        /// <summary>Render all objects first in a g-buffer pass, then apply all lighting in a separate pass using deferred shading.</summary>
-        Deferred
+
     };
 
     /// <summary>
@@ -30,10 +29,9 @@ namespace UnityEngine.Rendering.Universal
         }
 
         // Rendering mode setup from UI.
-        internal RenderingMode renderingMode { get { return RenderingMode.Forward; } }
-        // Actual rendering mode, which may be different (ex: wireframe rendering, harware not capable of deferred rendering).
-        internal RenderingMode actualRenderingMode => this.renderingMode;//{ get { return GL.wireframe || m_DeferredLights == null || !m_DeferredLights.IsRuntimeSupportedThisFrame() ? RenderingMode.Forward : this.renderingMode; } }
-        internal bool accurateGbufferNormals => false;//{ get { return m_DeferredLights != null ? m_DeferredLights.AccurateGbufferNormals : false; } }
+        // internal RenderingMode renderingMode { get { return RenderingMode.Forward; } }
+
+        // internal bool accurateGbufferNormals => false;//{ get { return m_DeferredLights != null ? m_DeferredLights.AccurateGbufferNormals : false; } }
         ColorGradingLutPass m_ColorGradingLutPass;
         DepthOnlyPass m_DepthPrepass;
         DepthNormalOnlyPass m_DepthNormalPrepass;
@@ -223,7 +221,7 @@ namespace UnityEngine.Rendering.Universal
             // TODO: We could cache and generate the LUT before rendering the stack
             bool generateColorGradingLUT = false;//cameraData.postProcessEnabled;
             bool isSceneViewCamera = cameraData.isSceneViewCamera;
-            bool requiresDepthTexture = cameraData.requiresDepthTexture || renderPassInputs.requiresDepthTexture || this.actualRenderingMode == RenderingMode.Deferred;
+            bool requiresDepthTexture = cameraData.requiresDepthTexture || renderPassInputs.requiresDepthTexture;
 
             bool mainLightShadows = m_MainLightShadowCasterPass.Setup(ref renderingData);
             bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(ref renderingData);
@@ -257,8 +255,7 @@ namespace UnityEngine.Rendering.Universal
             // because BuiltinRenderTextureType.CameraTarget for depth means there is no explicit depth attachment...
             bool createDepthTexture = cameraData.requiresDepthTexture && !requiresDepthPrepass;
             createDepthTexture |= (cameraData.renderType == CameraRenderType.Base && !cameraData.resolveFinalTarget);
-            // Deferred renderer always need to access depth buffer.
-            createDepthTexture |= this.actualRenderingMode == RenderingMode.Deferred;
+
 
 
 #if UNITY_ANDROID || UNITY_WEBGL
@@ -294,8 +291,7 @@ namespace UnityEngine.Rendering.Universal
             // If deferred rendering path was selected, it has already made a copy.
             bool requiresDepthCopyPass = !requiresDepthPrepass
                                          && renderingData.cameraData.requiresDepthTexture
-                                         && createDepthTexture
-                                         && this.actualRenderingMode != RenderingMode.Deferred;
+                                         && createDepthTexture;
             bool copyColorPass = renderingData.cameraData.requiresOpaqueTexture || renderPassInputs.requiresColorTexture;
 
             // Assign camera targets (color and depth)
@@ -507,13 +503,10 @@ namespace UnityEngine.Rendering.Universal
                 cullingParameters.cullingOptions &= ~CullingOptions.ShadowCasters;
             }
 
-            if (this.actualRenderingMode == RenderingMode.Deferred)
-                cullingParameters.maximumVisibleLights = 0xFFFF;
-            else
-            {
-                // We set the number of maximum visible lights allowed and we add one for the mainlight...
-                cullingParameters.maximumVisibleLights = UniversalRenderPipeline.maxVisibleAdditionalLights + 1;
-            }
+
+            // We set the number of maximum visible lights allowed and we add one for the mainlight...
+            cullingParameters.maximumVisibleLights = UniversalRenderPipeline.maxVisibleAdditionalLights + 1;
+
             cullingParameters.shadowDistance = cameraData.maxShadowDistance;
         }
 
@@ -611,15 +604,6 @@ namespace UnityEngine.Rendering.Universal
             // When rendering a camera stack we always create an intermediate render texture to composite camera results.
             // We create it upon rendering the Base camera.
             if (cameraData.renderType == CameraRenderType.Base && !cameraData.resolveFinalTarget)
-                return true;
-
-            // Always force rendering into intermediate color texture if deferred rendering mode is selected.
-            // Reason: without intermediate color texture, the target camera texture is y-flipped.
-            // However, the target camera texture is bound during gbuffer pass and deferred pass.
-            // Gbuffer pass will not be y-flipped because it is MRT (see ScriptableRenderContext implementation),
-            // while deferred pass will be y-flipped, which breaks rendering.
-            // This incurs an extra blit into at the end of rendering.
-            if (this.actualRenderingMode == RenderingMode.Deferred)
                 return true;
 
             bool isSceneViewCamera = cameraData.isSceneViewCamera;

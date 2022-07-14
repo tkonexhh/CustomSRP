@@ -284,11 +284,11 @@ namespace UnityEditor.Rendering.Universal
                     ++i;
             }
 
-            if(compilerDataList is List<ShaderCompilerData> inputDataList)
+            if (compilerDataList is List<ShaderCompilerData> inputDataList)
                 inputDataList.RemoveRange(inputShaderVariantCount, inputDataList.Count - inputShaderVariantCount);
             else
             {
-                for(int i = compilerDataList.Count -1; i >= inputShaderVariantCount; --i)
+                for (int i = compilerDataList.Count - 1; i >= inputShaderVariantCount; --i)
                     compilerDataList.RemoveAt(i);
             }
 
@@ -315,7 +315,8 @@ namespace UnityEditor.Rendering.Universal
     {
         public static ShaderFeatures supportedFeatures
         {
-            get {
+            get
+            {
                 if (_supportedFeatures <= 0)
                 {
                     FetchAllSupportedFeatures();
@@ -347,7 +348,7 @@ namespace UnityEditor.Rendering.Universal
         {
             List<UniversalRenderPipelineAsset> urps = new List<UniversalRenderPipelineAsset>();
             urps.Add(GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset);
-            for(int i = 0; i < QualitySettings.names.Length; i++)
+            for (int i = 0; i < QualitySettings.names.Length; i++)
             {
                 urps.Add(QualitySettings.GetRenderPipelineAssetAt(i) as UniversalRenderPipelineAsset);
             }
@@ -403,16 +404,7 @@ namespace UnityEditor.Rendering.Universal
             for (int rendererIndex = 0; rendererIndex < rendererCount; ++rendererIndex)
             {
                 ScriptableRenderer renderer = pipelineAsset.GetRenderer(rendererIndex);
-                if (renderer is ForwardRenderer)
-                {
-                    ForwardRenderer forwardRenderer = (ForwardRenderer)renderer;
-                    if (forwardRenderer.renderingMode == RenderingMode.Deferred)
-                    {
-                        hasDeferredRenderer |= true;
-                        withAccurateGbufferNormals |= forwardRenderer.accurateGbufferNormals;
-                        withoutAccurateGbufferNormals |= !forwardRenderer.accurateGbufferNormals;
-                    }
-                }
+
 
                 // Check for Screen Space Ambient Occlusion Renderer Feature
                 ScriptableRendererData rendererData = pipelineAsset.m_RendererDataList[rendererIndex];
