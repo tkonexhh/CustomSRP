@@ -545,7 +545,6 @@ namespace UnityEngine.Rendering.Universal
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                BeginXRRendering(cmd, context, ref renderingData.cameraData);
 
                 // In the opaque and transparent blocks the main rendering executes.
 
@@ -574,7 +573,6 @@ namespace UnityEngine.Rendering.Universal
                     ExecuteBlock(RenderPassBlock.AfterRendering, in renderBlocks, context, ref renderingData);
                 }
 
-                EndXRRendering(cmd, context, ref renderingData.cameraData);
 
                 DrawWireOverlay(context, camera);
                 DrawGizmos(context, camera, GizmoSubset.PostImageEffects);
@@ -909,16 +907,6 @@ namespace UnityEngine.Rendering.Universal
 
                 }
             }
-        }
-
-        void BeginXRRendering(CommandBuffer cmd, ScriptableRenderContext context, ref CameraData cameraData)
-        {
-
-        }
-
-        void EndXRRendering(CommandBuffer cmd, ScriptableRenderContext context, ref CameraData cameraData)
-        {
-
         }
 
         internal static void SetRenderTarget(CommandBuffer cmd, RenderTargetIdentifier colorAttachment, RenderTargetIdentifier depthAttachment, ClearFlag clearFlag, Color clearColor)

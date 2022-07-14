@@ -9,7 +9,6 @@ using System.ComponentModel;
 namespace UnityEngine.Rendering.Universal
 {
     [Serializable, ReloadGroup, ExcludeFromPreset]
-    [MovedFrom("UnityEngine.Rendering.LWRP")]
     public class ForwardRendererData : ScriptableRendererData
     {
 #if UNITY_EDITOR
@@ -72,12 +71,10 @@ namespace UnityEngine.Rendering.Universal
         public ShaderResources shaders = null;
 
         [SerializeField] LayerMask m_OpaqueLayerMask = -1;
+        [SerializeField] LayerMask m_TerrainLayerMask = -1;
         [SerializeField] LayerMask m_TransparentLayerMask = -1;
         [SerializeField] StencilStateData m_DefaultStencilState = new StencilStateData() { passOperation = StencilOp.Replace }; // This default state is compatible with deferred renderer.
         [SerializeField] bool m_ShadowTransparentReceive = true;
-        [SerializeField] RenderingMode m_RenderingMode = RenderingMode.Forward;
-        [SerializeField] bool m_AccurateGbufferNormals = false;
-        //[SerializeField] bool m_TiledDeferredShading = false;
 
         protected override ScriptableRenderer Create()
         {
@@ -101,6 +98,16 @@ namespace UnityEngine.Rendering.Universal
             {
                 SetDirty();
                 m_OpaqueLayerMask = value;
+            }
+        }
+
+        public LayerMask terrainLayerMask
+        {
+            get => m_TerrainLayerMask;
+            set
+            {
+                SetDirty();
+                m_TerrainLayerMask = value;
             }
         }
 
@@ -140,44 +147,7 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        /// <summary>
-        /// Rendering mode. Only Forward rendering is supported in this version.
-        /// </summary>
-        public RenderingMode renderingMode
-        {
-            get => m_RenderingMode;
-            set
-            {
-                SetDirty();
-                m_RenderingMode = value;
-            }
-        }
 
-        /// <summary>
-        /// Use Octaedron Octahedron normal vector encoding for gbuffer normals.
-        /// The overhead is negligible from desktop GPUs, while it should be avoided for mobile GPUs.
-        /// </summary>
-        public bool accurateGbufferNormals
-        {
-            get => m_AccurateGbufferNormals;
-            set
-            {
-                SetDirty();
-                m_AccurateGbufferNormals = value;
-            }
-        }
-
-        /*
-        public bool tiledDeferredShading
-        {
-            get => m_TiledDeferredShading;
-            set
-            {
-                SetDirty();
-                m_TiledDeferredShading = value;
-            }
-        }
-        */
 
         protected override void OnEnable()
         {

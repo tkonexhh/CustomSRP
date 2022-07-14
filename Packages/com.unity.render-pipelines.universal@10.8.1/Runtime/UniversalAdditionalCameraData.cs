@@ -249,11 +249,9 @@ namespace UnityEngine.Rendering.Universal
         [FormerlySerializedAs("renderShadows"), SerializeField]
         bool m_RenderShadows = true;
 
-        [SerializeField]
-        CameraOverrideOption m_RequiresDepthTextureOption = CameraOverrideOption.UsePipelineSettings;
-
-        [SerializeField]
-        CameraOverrideOption m_RequiresOpaqueTextureOption = CameraOverrideOption.UsePipelineSettings;
+        [SerializeField] CameraOverrideOption m_RequiresDepthTextureOption = CameraOverrideOption.UsePipelineSettings;
+        [SerializeField] CameraOverrideOption m_RequiresDepthNormalsTextureOption = CameraOverrideOption.UsePipelineSettings;
+        [SerializeField] CameraOverrideOption m_RequiresOpaqueTextureOption = CameraOverrideOption.UsePipelineSettings;
 
         [SerializeField] CameraRenderType m_CameraType = CameraRenderType.Base;
         [SerializeField] List<Camera> m_Cameras = new List<Camera>();
@@ -276,6 +274,8 @@ namespace UnityEngine.Rendering.Universal
         // Deprecated:
         [FormerlySerializedAs("requiresDepthTexture"), SerializeField]
         bool m_RequiresDepthTexture = false;
+        [FormerlySerializedAs("requiresDepthNormalsTexture"), SerializeField]
+        bool m_RequiresDepthNormalsTexture = false;
 
         [FormerlySerializedAs("requiresColorTexture"), SerializeField]
         bool m_RequiresColorTexture = false;
@@ -329,6 +329,12 @@ namespace UnityEngine.Rendering.Universal
         {
             get => m_RequiresDepthTextureOption;
             set => m_RequiresDepthTextureOption = value;
+        }
+
+        public CameraOverrideOption requiresDepthNormalsOption
+        {
+            get => m_RequiresDepthNormalsTextureOption;
+            set => m_RequiresDepthNormalsTextureOption = value;
         }
 
         /// <summary>
@@ -418,6 +424,23 @@ namespace UnityEngine.Rendering.Universal
                 }
             }
             set { m_RequiresDepthTextureOption = (value) ? CameraOverrideOption.On : CameraOverrideOption.Off; }
+        }
+
+        public bool requiresDepthNormalsTexture
+        {
+
+            get
+            {
+                if (m_RequiresDepthNormalsTextureOption == CameraOverrideOption.UsePipelineSettings)
+                {
+                    return UniversalRenderPipeline.asset.supportsCameraDepthNormalsTexture;
+                }
+                else
+                {
+                    return m_RequiresDepthNormalsTextureOption == CameraOverrideOption.On;
+                }
+            }
+            set { m_RequiresDepthNormalsTextureOption = (value) ? CameraOverrideOption.On : CameraOverrideOption.Off; }
         }
 
         /// <summary>
@@ -588,6 +611,7 @@ namespace UnityEngine.Rendering.Universal
             if (version <= 1)
             {
                 m_RequiresDepthTextureOption = (m_RequiresDepthTexture) ? CameraOverrideOption.On : CameraOverrideOption.Off;
+                m_RequiresDepthNormalsTextureOption = (m_RequiresDepthNormalsTexture) ? CameraOverrideOption.On : CameraOverrideOption.Off;
                 m_RequiresOpaqueTextureOption = (m_RequiresColorTexture) ? CameraOverrideOption.On : CameraOverrideOption.Off;
             }
         }

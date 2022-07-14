@@ -87,11 +87,6 @@ namespace UnityEngine.Rendering.Universal
                     const string k_Name = nameof(Context);
                     public static readonly ProfilingSampler submit = new ProfilingSampler($"{k_Name}.{nameof(ScriptableRenderContext.Submit)}");
                 };
-
-                public static class XR
-                {
-                    public static readonly ProfilingSampler mirrorView = new ProfilingSampler("XR Mirror View");
-                };
             };
         }
 
@@ -170,7 +165,7 @@ namespace UnityEngine.Rendering.Universal
             Shader.globalRenderPipeline = "";
             SupportedRenderingFeatures.active = new SupportedRenderingFeatures();
             ShaderData.instance.Dispose();
-            DeferredShaderData.instance.Dispose();
+            // DeferredShaderData.instance.Dispose();
 
 
 
@@ -732,6 +727,7 @@ namespace UnityEngine.Rendering.Universal
                 cameraData.clearDepth = true;
                 cameraData.postProcessEnabled = CoreUtils.ArePostProcessesEnabled(camera);
                 cameraData.requiresDepthTexture = settings.supportsCameraDepthTexture;
+                cameraData.requiresDepthNormalsTexture = settings.supportsCameraDepthNormalsTexture;
                 cameraData.requiresOpaqueTexture = settings.supportsCameraOpaqueTexture;
                 cameraData.renderer = asset.scriptableRenderer;
             }
@@ -742,6 +738,7 @@ namespace UnityEngine.Rendering.Universal
                 cameraData.postProcessEnabled = additionalCameraData.renderPostProcessing;
                 cameraData.maxShadowDistance = (additionalCameraData.renderShadows) ? cameraData.maxShadowDistance : 0.0f;
                 cameraData.requiresDepthTexture = additionalCameraData.requiresDepthTexture;
+                cameraData.requiresDepthNormalsTexture = additionalCameraData.requiresDepthNormalsTexture;
                 cameraData.requiresOpaqueTexture = additionalCameraData.requiresColorTexture;
                 cameraData.renderer = additionalCameraData.scriptableRenderer;
             }
@@ -751,6 +748,7 @@ namespace UnityEngine.Rendering.Universal
                 cameraData.clearDepth = true;
                 cameraData.postProcessEnabled = false;
                 cameraData.requiresDepthTexture = settings.supportsCameraDepthTexture;
+                cameraData.requiresDepthNormalsTexture = settings.supportsCameraDepthNormalsTexture;
                 cameraData.requiresOpaqueTexture = settings.supportsCameraOpaqueTexture;
                 cameraData.renderer = asset.scriptableRenderer;
             }
