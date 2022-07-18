@@ -57,24 +57,14 @@ Shader "XHH/ShowTerrainColor"
 				Varyings output;
 				output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
 				output.normalWS = TransformObjectToWorldNormal(input.normalOS);
-
-
 				output.uv = input.uv;
-
-
 				return output;
 			}
 
 
 			float4 frag(Varyings input): SV_Target
 			{
-
-				float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
-
-
-				half4 colrefrac = tex2D(_CameraTerrainColor, screenUV);
-
-
+				half4 colrefrac = tex2D(_CameraTerrainColor, input.uv);
 				return float4(colrefrac.rgb, 1);
 			}
 

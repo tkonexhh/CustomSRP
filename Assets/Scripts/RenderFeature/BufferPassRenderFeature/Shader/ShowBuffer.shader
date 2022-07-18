@@ -11,6 +11,7 @@ Shader "Hidden/RenderFeature/ShowBuffer"
 
     CBUFFER_START(UnityPerMaterial)
     float _Args;
+    int _DepthMode;
     CBUFFER_END
 
 
@@ -60,12 +61,18 @@ Shader "Hidden/RenderFeature/ShowBuffer"
             {
                 float depth;
 
-                depth = GetSceneDepth(input.uv);
-                return depth * _Args;
-                // return Linear01Depth(depth, _ZBufferParams) * _Args;
+                if (_DepthMode == 1)
+                {
+                    depth = GetSceneDepth(input.uv);
+                    return depth;// * _Args;
 
-                depth = SampleSceneDepth(input.uv);
-                return Linear01Depth(depth, _ZBufferParams) * _Args;
+                }
+                else
+                {
+                    depth = SampleSceneDepth(input.uv);
+                    return Linear01Depth(depth, _ZBufferParams);// * _Args;
+
+                }
             }
             
             ENDHLSL

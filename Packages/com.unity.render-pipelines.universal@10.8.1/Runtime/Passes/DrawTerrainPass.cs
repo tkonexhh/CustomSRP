@@ -36,6 +36,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 m_RenderStateBlock.mask = RenderStateMask.Stencil;
                 m_RenderStateBlock.stencilState = stencilState;
             }
+            ConfigureClear(ClearFlag.All, Color.black);
         }
 
 
@@ -64,21 +65,21 @@ namespace UnityEngine.Rendering.Universal.Internal
             CommandBuffer cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, m_ProfilingSampler))
             {
-                // Global render pass data containing various settings.
-                // x,y,z are currently unused
-                // w is used for knowing whether the object is opaque(1) or alpha blended(0)
-                Vector4 drawObjectPassData = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
-                cmd.SetGlobalVector(s_DrawObjectPassDataPropID, drawObjectPassData);
+                // // Global render pass data containing various settings.
+                // // x,y,z are currently unused
+                // // w is used for knowing whether the object is opaque(1) or alpha blended(0)
+                // Vector4 drawObjectPassData = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+                // cmd.SetGlobalVector(s_DrawObjectPassDataPropID, drawObjectPassData);
 
-                // scaleBias.x = flipSign
-                // scaleBias.y = scale
-                // scaleBias.z = bias
-                // scaleBias.w = unused
-                float flipSign = (renderingData.cameraData.IsCameraProjectionMatrixFlipped()) ? -1.0f : 1.0f;
-                Vector4 scaleBias = (flipSign < 0.0f)
-                    ? new Vector4(flipSign, 1.0f, -1.0f, 1.0f)
-                    : new Vector4(flipSign, 0.0f, 1.0f, 1.0f);
-                cmd.SetGlobalVector(ShaderPropertyId.scaleBiasRt, scaleBias);
+                // // scaleBias.x = flipSign
+                // // scaleBias.y = scale
+                // // scaleBias.z = bias
+                // // scaleBias.w = unused
+                // float flipSign = (renderingData.cameraData.IsCameraProjectionMatrixFlipped()) ? -1.0f : 1.0f;
+                // Vector4 scaleBias = (flipSign < 0.0f)
+                //     ? new Vector4(flipSign, 1.0f, -1.0f, 1.0f)
+                //     : new Vector4(flipSign, 0.0f, 1.0f, 1.0f);
+                // cmd.SetGlobalVector(ShaderPropertyId.scaleBiasRt, scaleBias);
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 

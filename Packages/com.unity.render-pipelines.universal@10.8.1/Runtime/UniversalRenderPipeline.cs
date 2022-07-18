@@ -994,6 +994,9 @@ namespace UnityEngine.Rendering.Universal
 
             // Required for 2D Unlit Shadergraph master node as it doesn't currently support hidden properties.
             Shader.SetGlobalColor(ShaderPropertyId.rendererColor, Color.white);
+
+            //设置Depth模式 是DepthOnly还是DepthNormals 1 =>Depthnormal 0:DepthOnly
+            Shader.SetGlobalInt(ShaderPropertyId.depthMode, UniversalRenderPipeline.asset.supportsCameraDepthNormalsTexture ? 1 : 0);
         }
 
 #if ADAPTIVE_PERFORMANCE_2_0_0_OR_NEWER
