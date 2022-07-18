@@ -53,7 +53,7 @@ namespace UnityEditor.Rendering.Universal
         ShaderKeyword m_DirectionalLightmap = new ShaderKeyword(ShaderKeywordStrings.DIRLIGHTMAP_COMBINED);
         ShaderKeyword m_AlphaTestOn = new ShaderKeyword(ShaderKeywordStrings._ALPHATEST_ON);
         ShaderKeyword m_GbufferNormalsOct = new ShaderKeyword(ShaderKeywordStrings._GBUFFER_NORMALS_OCT);
-        ShaderKeyword m_UseDrawProcedural = new ShaderKeyword(ShaderKeywordStrings.UseDrawProcedural);
+        // ShaderKeyword m_UseDrawProcedural = new ShaderKeyword(ShaderKeywordStrings.UseDrawProcedural);
         ShaderKeyword m_ScreenSpaceOcclusion = new ShaderKeyword(ShaderKeywordStrings.ScreenSpaceOcclusion);
 
         ShaderKeyword m_LocalDetailMulx2;
@@ -166,9 +166,9 @@ namespace UnityEditor.Rendering.Universal
             // As GLES2 has low amount of registers, we strip:
             if (compilerData.shaderCompilerPlatform == ShaderCompilerPlatform.GLES20)
             {
-                // VertexID - as GLES2 does not support VertexID that is required for full screen draw procedural pass;
-                if (compilerData.shaderKeywordSet.IsEnabled(m_UseDrawProcedural))
-                    return true;
+                // // VertexID - as GLES2 does not support VertexID that is required for full screen draw procedural pass;
+                // if (compilerData.shaderKeywordSet.IsEnabled(m_UseDrawProcedural))
+                //     return true;
 
                 // Cascade shadows
                 if (compilerData.shaderKeywordSet.IsEnabled(m_CascadeShadows))

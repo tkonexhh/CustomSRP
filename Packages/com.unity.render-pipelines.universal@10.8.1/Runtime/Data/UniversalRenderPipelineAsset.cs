@@ -156,6 +156,7 @@ namespace UnityEngine.Rendering.Universal
         [SerializeField] bool m_SupportsHDR = true;
         [SerializeField] MsaaQuality m_MSAA = MsaaQuality.Disabled;
         [SerializeField] float m_RenderScale = 1.0f;
+        [SerializeField] bool m_BlendTerrain = false;
         // TODO: Shader Quality Tiers
 
         // Main directional light Settings
@@ -581,6 +582,12 @@ namespace UnityEngine.Rendering.Universal
             get { return m_RenderScale; }
             set { m_RenderScale = ValidateRenderScale(value); }
         }
+
+        public bool supportBlendTerrain
+        {
+            get { return m_BlendTerrain; }
+        }
+
 
         public LightRenderingMode mainLightRenderingMode
         {

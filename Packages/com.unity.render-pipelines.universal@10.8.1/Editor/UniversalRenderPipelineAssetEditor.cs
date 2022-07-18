@@ -35,10 +35,11 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent supportsTerrainHolesText = EditorGUIUtility.TrTextContent("Terrain Holes", "When disabled, Universal Rendering Pipeline removes all Terrain hole Shader variants when you build for the Unity Player. This decreases build time.");
 
             // Quality
-
             public static GUIContent hdrText = EditorGUIUtility.TrTextContent("HDR", "Controls the global HDR settings.");
             public static GUIContent msaaText = EditorGUIUtility.TrTextContent("Anti Aliasing (MSAA)", "Controls the global anti aliasing settings.");
             public static GUIContent renderScaleText = EditorGUIUtility.TrTextContent("Render Scale", "Scales the camera render target allowing the game to render at a resolution different than native resolution. UI is always rendered at native resolution.");
+            public static GUIContent blendTerrainText = EditorGUIUtility.TrTextContent("Blend Terrain", "Controls the global Blend Terrain settings.");
+
 
             // Main light
             public static GUIContent mainLightRenderingModeText = EditorGUIUtility.TrTextContent("Main Light", "Main light is the brightest directional light.");
@@ -120,6 +121,7 @@ namespace UnityEditor.Rendering.Universal
         SerializedProperty m_HDR;
         SerializedProperty m_MSAA;
         SerializedProperty m_RenderScale;
+        SerializedProperty m_BlendTerrain;
 
         SerializedProperty m_MainLightRenderingModeProp;
         SerializedProperty m_MainLightShadowsSupportedProp;
@@ -199,6 +201,7 @@ namespace UnityEditor.Rendering.Universal
             m_HDR = serializedObject.FindProperty("m_SupportsHDR");
             m_MSAA = serializedObject.FindProperty("m_MSAA");
             m_RenderScale = serializedObject.FindProperty("m_RenderScale");
+            m_BlendTerrain = serializedObject.FindProperty("m_BlendTerrain");
 
             m_MainLightRenderingModeProp = serializedObject.FindProperty("m_MainLightRenderingMode");
             m_MainLightShadowsSupportedProp = serializedObject.FindProperty("m_MainLightShadowsSupported");
@@ -297,6 +300,7 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUILayout.PropertyField(m_HDR, Styles.hdrText);
                 EditorGUILayout.PropertyField(m_MSAA, Styles.msaaText);
                 m_RenderScale.floatValue = EditorGUILayout.Slider(Styles.renderScaleText, m_RenderScale.floatValue, UniversalRenderPipeline.minRenderScale, UniversalRenderPipeline.maxRenderScale);
+                EditorGUILayout.PropertyField(m_BlendTerrain, Styles.blendTerrainText);
                 EditorGUI.indentLevel--;
                 EditorGUILayout.Space();
                 EditorGUILayout.Space();

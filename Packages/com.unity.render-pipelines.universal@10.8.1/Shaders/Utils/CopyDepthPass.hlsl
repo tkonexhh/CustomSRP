@@ -15,19 +15,19 @@
 
 struct Attributes
 {
-#if _USE_DRAW_PROCEDURAL
-    uint vertexID     : SV_VertexID;
-#else
-    float4 positionHCS : POSITION;
-    float2 uv         : TEXCOORD0;
-#endif
+    // #if _USE_DRAW_PROCEDURAL
+    //     uint vertexID     : SV_VertexID;
+    // #else
+        float4 positionHCS: POSITION;
+    float2 uv: TEXCOORD0;
+    // #endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
 struct Varyings
 {
-    float4 positionCS : SV_POSITION;
-    float2 uv         : TEXCOORD0;
+    float4 positionCS: SV_POSITION;
+    float2 uv: TEXCOORD0;
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
@@ -51,28 +51,28 @@ Varyings vert(Attributes input)
     //  - All good.
     // If URP is NOT rendering to RT neither rendering with OpenGL:
     //  - Source Depth is NOT fliped. We CANNOT flip when copying depth and don't flip when sampling. (ProjectionParams.x == 1)
-#if _USE_DRAW_PROCEDURAL
-    output.positionCS = GetQuadVertexPosition(input.vertexID);
-    output.positionCS.xy = output.positionCS.xy * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f); //convert to -1..1
-    output.uv = GetQuadTexCoord(input.vertexID);
-#else
-    output.positionCS = float4(input.positionHCS.xyz, 1.0);
+    // #if _USE_DRAW_PROCEDURAL
+    //     output.positionCS = GetQuadVertexPosition(input.vertexID);
+    //     output.positionCS.xy = output.positionCS.xy * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f); //convert to -1..1
+    //     output.uv = GetQuadTexCoord(input.vertexID);
+    // #else
+        output.positionCS = float4(input.positionHCS.xyz, 1.0);
     output.uv = input.uv;
-#endif
+    // #endif
     output.positionCS.y *= _ScaleBiasRt.x;
     return output;
 }
 
 #if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
-#define DEPTH_TEXTURE_MS(name, samples) Texture2DMSArray<float, samples> name
-#define DEPTH_TEXTURE(name) TEXTURE2D_ARRAY_FLOAT(name)
-#define LOAD(uv, sampleIndex) LOAD_TEXTURE2D_ARRAY_MSAA(_CameraDepthAttachment, uv, unity_StereoEyeIndex, sampleIndex)
-#define SAMPLE(uv) SAMPLE_TEXTURE2D_ARRAY(_CameraDepthAttachment, sampler_CameraDepthAttachment, uv, unity_StereoEyeIndex).r
+    #define DEPTH_TEXTURE_MS(name, samples) Texture2DMSArray < float, samples > name
+    #define DEPTH_TEXTURE(name) TEXTURE2D_ARRAY_FLOAT(name)
+    #define LOAD(uv, sampleIndex) LOAD_TEXTURE2D_ARRAY_MSAA(_CameraDepthAttachment, uv, unity_StereoEyeIndex, sampleIndex)
+    #define SAMPLE(uv) SAMPLE_TEXTURE2D_ARRAY(_CameraDepthAttachment, sampler_CameraDepthAttachment, uv, unity_StereoEyeIndex).r
 #else
-#define DEPTH_TEXTURE_MS(name, samples) Texture2DMS<float, samples> name
-#define DEPTH_TEXTURE(name) TEXTURE2D_FLOAT(name)
-#define LOAD(uv, sampleIndex) LOAD_TEXTURE2D_MSAA(_CameraDepthAttachment, uv, sampleIndex)
-#define SAMPLE(uv) SAMPLE_DEPTH_TEXTURE(_CameraDepthAttachment, sampler_CameraDepthAttachment, uv)
+    #define DEPTH_TEXTURE_MS(name, samples) Texture2DMS < float, samples > name
+    #define DEPTH_TEXTURE(name) TEXTURE2D_FLOAT(name)
+    #define LOAD(uv, sampleIndex) LOAD_TEXTURE2D_MSAA(_CameraDepthAttachment, uv, sampleIndex)
+    #define SAMPLE(uv) SAMPLE_DEPTH_TEXTURE(_CameraDepthAttachment, sampler_CameraDepthAttachment, uv)
 #endif
 
 #if MSAA_SAMPLES == 1
@@ -93,20 +93,20 @@ Varyings vert(Attributes input)
 
 float SampleDepth(float2 uv)
 {
-#if MSAA_SAMPLES == 1
-    return SAMPLE(uv);
-#else
-    int2 coord = int2(uv * _CameraDepthAttachment_TexelSize.zw);
-    float outDepth = DEPTH_DEFAULT_VALUE;
+    #if MSAA_SAMPLES == 1
+        return SAMPLE(uv);
+    #else
+        int2 coord = int2(uv * _CameraDepthAttachment_TexelSize.zw);
+        float outDepth = DEPTH_DEFAULT_VALUE;
 
-    UNITY_UNROLL
-    for (int i = 0; i < MSAA_SAMPLES; ++i)
+        UNITY_UNROLL
+        for (int i = 0; i < MSAA_SAMPLES; ++i)
         outDepth = DEPTH_OP(LOAD(coord, i), outDepth);
-    return outDepth;
-#endif
+        return outDepth;
+    #endif
 }
 
-float frag(Varyings input) : SV_Depth
+float frag(Varyings input): SV_Depth
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
     return SampleDepth(input.uv);

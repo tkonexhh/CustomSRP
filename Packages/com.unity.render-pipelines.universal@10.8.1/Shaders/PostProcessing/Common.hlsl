@@ -21,12 +21,12 @@ Varyings VertFullscreenMesh(Attributes input)
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-#if _USE_DRAW_PROCEDURAL
-    GetProceduralQuad(input.vertexID, output.positionCS, output.uv);
-#else
-    output.positionCS = TransformFullscreenMesh(input.positionOS.xyz);
+    // #if _USE_DRAW_PROCEDURAL
+    //     GetProceduralQuad(input.vertexID, output.positionCS, output.uv);
+    // #else
+        output.positionCS = TransformFullscreenMesh(input.positionOS.xyz);
     output.uv = input.uv;
-#endif
+    // #endif
 
     return output;
 }
@@ -44,11 +44,11 @@ SAMPLER(sampler_PointRepeat);
 
 half GetLuminance(half3 colorLinear)
 {
-#if _TONEMAP_ACES
-    return AcesLuminance(colorLinear);
-#else
-    return Luminance(colorLinear);
-#endif
+    #if _TONEMAP_ACES
+        return AcesLuminance(colorLinear);
+    #else
+        return Luminance(colorLinear);
+    #endif
 }
 
 // ----------------------------------------------------------------------------------
@@ -60,9 +60,9 @@ half3 ApplyVignette(half3 input, float2 uv, float2 center, float intensity, floa
     center = UnityStereoTransformScreenSpaceTex(center);
     float2 dist = abs(uv - center) * intensity;
 
-#if defined(UNITY_SINGLE_PASS_STEREO)
-    dist.x /= unity_StereoScaleOffset[unity_StereoEyeIndex].x;
-#endif
+    #if defined(UNITY_SINGLE_PASS_STEREO)
+        dist.x /= unity_StereoScaleOffset[unity_StereoEyeIndex].x;
+    #endif
 
     dist.x *= roundness;
     float vfactor = pow(saturate(1.0 - dot(dist, dist)), smoothness);
@@ -71,12 +71,12 @@ half3 ApplyVignette(half3 input, float2 uv, float2 center, float intensity, floa
 
 half3 ApplyTonemap(half3 input)
 {
-#if _TONEMAP_ACES
-    float3 aces = unity_to_ACES(input);
-    input = AcesTonemap(aces);
-#elif _TONEMAP_NEUTRAL
-    input = NeutralTonemap(input);
-#endif
+    #if _TONEMAP_ACES
+        float3 aces = unity_to_ACES(input);
+        input = AcesTonemap(aces);
+    #elif _TONEMAP_NEUTRAL
+        input = NeutralTonemap(input);
+    #endif
 
     return saturate(input);
 }
@@ -90,40 +90,40 @@ half3 ApplyColorGrading(half3 input, float postExposure, TEXTURE2D_PARAM(lutTex,
     //   - Apply internal LogC LUT
     //   - (optional) Clamp result & apply user LUT
     #if _HDR_GRADING
-    {
-        float3 inputLutSpace = saturate(LinearToLogC(input)); // LUT space is in LogC
-        input = ApplyLut2D(TEXTURE2D_ARGS(lutTex, lutSampler), inputLutSpace, lutParams);
-
-        UNITY_BRANCH
-        if (userLutContrib > 0.0)
         {
-            input = saturate(input);
-            input.rgb = LinearToSRGB(input.rgb); // In LDR do the lookup in sRGB for the user LUT
-            half3 outLut = ApplyLut2D(TEXTURE2D_ARGS(userLutTex, userLutSampler), input, userLutParams);
-            input = lerp(input, outLut, userLutContrib);
-            input.rgb = SRGBToLinear(input.rgb);
-        }
-    }
+            float3 inputLutSpace = saturate(LinearToLogC(input)); // LUT space is in LogC
+            input = ApplyLut2D(TEXTURE2D_ARGS(lutTex, lutSampler), inputLutSpace, lutParams);
 
-    // LDR Grading:
-    //   - Apply tonemapping (result is clamped)
-    //   - (optional) Apply user LUT
-    //   - Apply internal linear LUT
+            UNITY_BRANCH
+            if (userLutContrib > 0.0)
+            {
+                input = saturate(input);
+                input.rgb = LinearToSRGB(input.rgb); // In LDR do the lookup in sRGB for the user LUT
+                half3 outLut = ApplyLut2D(TEXTURE2D_ARGS(userLutTex, userLutSampler), input, userLutParams);
+                input = lerp(input, outLut, userLutContrib);
+                input.rgb = SRGBToLinear(input.rgb);
+            }
+        }
+
+        // LDR Grading:
+        //   - Apply tonemapping (result is clamped)
+        //   - (optional) Apply user LUT
+        //   - Apply internal linear LUT
     #else
-    {
-        input = ApplyTonemap(input);
-
-        UNITY_BRANCH
-        if (userLutContrib > 0.0)
         {
-            input.rgb = LinearToSRGB(input.rgb); // In LDR do the lookup in sRGB for the user LUT
-            half3 outLut = ApplyLut2D(TEXTURE2D_ARGS(userLutTex, userLutSampler), input, userLutParams);
-            input = lerp(input, outLut, userLutContrib);
-            input.rgb = SRGBToLinear(input.rgb);
-        }
+            input = ApplyTonemap(input);
 
-        input = ApplyLut2D(TEXTURE2D_ARGS(lutTex, lutSampler), input, lutParams);
-    }
+            UNITY_BRANCH
+            if (userLutContrib > 0.0)
+            {
+                input.rgb = LinearToSRGB(input.rgb); // In LDR do the lookup in sRGB for the user LUT
+                half3 outLut = ApplyLut2D(TEXTURE2D_ARGS(userLutTex, userLutSampler), input, userLutParams);
+                input = lerp(input, outLut, userLutContrib);
+                input.rgb = SRGBToLinear(input.rgb);
+            }
+
+            input = ApplyLut2D(TEXTURE2D_ARGS(lutTex, lutSampler), input, lutParams);
+        }
     #endif
 
     return input;
@@ -150,11 +150,11 @@ half3 ApplyDithering(half3 input, float2 uv, TEXTURE2D_PARAM(BlueNoiseTexture, B
     float noise = SAMPLE_TEXTURE2D(BlueNoiseTexture, BlueNoiseSampler, uv * scale + offset).a * 2.0 - 1.0;
     noise = FastSign(noise) * (1.0 - sqrt(1.0 - abs(noise)));
 
-#if UNITY_COLORSPACE_GAMMA
-    input += noise / 255.0;
-#else
-    input = SRGBToLinear(LinearToSRGB(input) + noise / 255.0);
-#endif
+    #if UNITY_COLORSPACE_GAMMA
+        input += noise / 255.0;
+    #else
+        input = SRGBToLinear(LinearToSRGB(input) + noise / 255.0);
+    #endif
 
     return input;
 }

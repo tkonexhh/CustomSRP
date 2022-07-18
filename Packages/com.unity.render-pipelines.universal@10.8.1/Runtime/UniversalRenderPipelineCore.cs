@@ -316,8 +316,8 @@ namespace UnityEngine.Rendering.Universal
         public static readonly string _CLEARCOAT = "_CLEARCOAT";
         public static readonly string _CLEARCOATMAP = "_CLEARCOATMAP";
 
-        // XR
-        public static readonly string UseDrawProcedural = "_USE_DRAW_PROCEDURAL";
+        // // XR
+        // public static readonly string UseDrawProcedural = "_USE_DRAW_PROCEDURAL";
     }
 
     public sealed partial class UniversalRenderPipeline

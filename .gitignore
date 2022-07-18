@@ -60,5 +60,6 @@ crashlytics-build.properties
 
 
 */.svn/*
+.vscode/
 
 Packages/com.unity.render-pipelines.universal@10.8.1/.svn/

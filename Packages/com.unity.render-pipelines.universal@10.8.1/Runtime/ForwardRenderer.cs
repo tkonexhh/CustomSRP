@@ -39,6 +39,7 @@ namespace UnityEngine.Rendering.Universal
         // DrawObjectsPass m_RenderOpaqueForwardPass;
         DrawSkyboxPass m_DrawSkyboxPass;
         CopyDepthPass m_CopyDepthPass;
+        CopyColorPass m_CopyColorPassTerrainToColor;
         CopyColorPass m_CopyColorPass;
         CopyColorPass m_CopyColorPass_AfterTransparent;
         TransparentSettingsPass m_TransparentSettingsPass;
@@ -112,8 +113,15 @@ namespace UnityEngine.Rendering.Universal
             m_DepthNormalPrepass = new DepthNormalOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, RenderQueueRange.opaque, data.opaqueLayerMask);
             m_ColorGradingLutPass = new ColorGradingLutPass(RenderPassEvent.BeforeRenderingPrepasses, data.postProcessData);
 
-            m_DrawTerrainPass = new DrawTerrainPass(RenderPassEvent.BeforeRenderingOpaques - 1, RenderQueueRange.opaque, data.terrainLayerMask, m_DefaultStencilState, stencilData.stencilReference);
-            m_DrawOpaquePass = new DrawOpaquePass(RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_DrawTerrainPass = new DrawTerrainPass(RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.terrainLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_CopyColorPassTerrainToColor = new CopyColorPass(RenderPassEvent.BeforeRenderingOpaques, m_SamplingMaterial, m_BlitMaterial);
+
+            LayerMask realDrawOpaqueLayerMask = data.opaqueLayerMask;
+            if (UniversalRenderPipeline.asset.supportBlendTerrain)
+            {
+                realDrawOpaqueLayerMask &= ~data.terrainLayerMask;
+            }
+            m_DrawOpaquePass = new DrawOpaquePass(RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, realDrawOpaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
             // Always create this pass even in deferred because we use it for wireframe rendering in the Editor or offscreen depth texture rendering.
             // m_RenderOpaqueForwardPass = new DrawObjectsPass(URPProfileId.DrawOpaqueObjects, true, RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
 
@@ -187,6 +195,7 @@ namespace UnityEngine.Rendering.Universal
             {
                 ConfigureCameraTarget(BuiltinRenderTextureType.CameraTarget, BuiltinRenderTextureType.CameraTarget);
                 AddRenderPasses(ref renderingData);
+                EnqueuePass(m_DrawTerrainPass);
                 EnqueuePass(m_DrawOpaquePass);
                 // EnqueuePass(m_RenderOpaqueForwardPass);
 
@@ -303,7 +312,7 @@ namespace UnityEngine.Rendering.Universal
                 var activeColorRenderTargetId = m_ActiveCameraColorAttachment.Identifier();
                 var activeDepthRenderTargetId = m_ActiveCameraDepthAttachment.Identifier();
 
-
+                //设置默认的CameraTarget
                 ConfigureCameraTarget(activeColorRenderTargetId, activeDepthRenderTargetId);
             }
 
@@ -337,8 +346,6 @@ namespace UnityEngine.Rendering.Universal
             }
 
 
-            // EnqueuePass(m_DrawTerrainPass);
-
             // Optimized store actions are very important on tile based GPUs and have a great impact on performance.
             // if MSAA is enabled and any of the following passes need a copy of the color or depth target, make sure the MSAA'd surface is stored
             // if following passes won't use it then just resolve (the Resolve action will still store the resolved surface, but discard the MSAA'd surface, which is very expensive to store).
@@ -349,16 +356,25 @@ namespace UnityEngine.Rendering.Universal
             // make sure we store the depth only if following passes need it.
             RenderBufferStoreAction opaquePassDepthStoreAction = (copyColorPass || requiresDepthCopyPass) ? RenderBufferStoreAction.Store : RenderBufferStoreAction.DontCare;
 
+            bool needBlendTerrain = UniversalRenderPipeline.asset.supportBlendTerrain;//如果需要混合的话
+            needBlendTerrain &= !renderingData.cameraData.isUICamera;//不是UICamera
+            needBlendTerrain &= cameraData.renderType == CameraRenderType.Base;//强制只有Base相机生效
+            if (needBlendTerrain)
+            {
+                m_DrawTerrainPass.ConfigureColorStoreAction(opaquePassColorStoreAction);
+                m_DrawTerrainPass.ConfigureDepthStoreAction(opaquePassDepthStoreAction);
+                m_DrawTerrainPass.Setup(cameraTargetDescriptor, m_ActiveCameraColorAttachment);
+                EnqueuePass(m_DrawTerrainPass);
+
+                Downsampling downsamplingMethod = UniversalRenderPipeline.asset.opaqueDownsampling;
+                m_CopyColorPassTerrainToColor.Setup(m_ActiveCameraColorAttachment.id, m_TerrainColor, downsamplingMethod);
+                EnqueuePass(m_CopyColorPassTerrainToColor);
+            }
+
+
             m_DrawOpaquePass.ConfigureColorStoreAction(opaquePassColorStoreAction);
             m_DrawOpaquePass.ConfigureDepthStoreAction(opaquePassDepthStoreAction);
-
             EnqueuePass(m_DrawOpaquePass);
-
-            // m_RenderOpaqueForwardPass.ConfigureColorStoreAction(opaquePassColorStoreAction);
-            // m_RenderOpaqueForwardPass.ConfigureDepthStoreAction(opaquePassDepthStoreAction);
-
-            // EnqueuePass(m_RenderOpaqueForwardPass);
-
 
             Skybox cameraSkybox;
             cameraData.camera.TryGetComponent<Skybox>(out cameraSkybox);
@@ -408,7 +424,7 @@ namespace UnityEngine.Rendering.Universal
             m_DrawTransparentPass.ConfigureDepthStoreAction(transparentPassDepthStoreAction);
             EnqueuePass(m_DrawTransparentPass);
 
-
+            //TODO 为了折射透明物体 这里的判断可以使用某个容器数量判断 减少消耗
             if (copyColorPass)
             {
                 // TODO: Downsampling method should be store in the renderer instead of in the asset.
@@ -418,11 +434,6 @@ namespace UnityEngine.Rendering.Universal
                 EnqueuePass(m_CopyColorPass_AfterTransparent);
                 EnqueuePass(m_DrawRefractPass);
             }
-
-            // m_RenderTransparentForwardPass.ConfigureColorStoreAction(transparentPassColorStoreAction);
-            // m_RenderTransparentForwardPass.ConfigureDepthStoreAction(transparentPassDepthStoreAction);
-            // EnqueuePass(m_RenderTransparentForwardPass);
-
 
 
             EnqueuePass(m_OnRenderObjectCallbackPass);

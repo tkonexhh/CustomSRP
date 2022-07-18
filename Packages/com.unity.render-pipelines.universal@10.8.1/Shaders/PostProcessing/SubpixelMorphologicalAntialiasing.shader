@@ -8,9 +8,9 @@ Shader "Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing"
 
     HLSLINCLUDE
 
-        #pragma multi_compile_local _SMAA_PRESET_LOW _SMAA_PRESET_MEDIUM _SMAA_PRESET_HIGH
-        #pragma multi_compile _ _USE_DRAW_PROCEDURAL
-        #pragma exclude_renderers gles
+    #pragma multi_compile_local _SMAA_PRESET_LOW _SMAA_PRESET_MEDIUM _SMAA_PRESET_HIGH
+    // #pragma multi_compile _ _USE_DRAW_PROCEDURAL
+    #pragma exclude_renderers gles
 
     ENDHLSL
 
@@ -18,7 +18,7 @@ Shader "Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing"
     {
         Cull Off ZWrite Off ZTest Always
 
-        // Edge detection 
+        // Edge detection
         Pass
         {
             Stencil
@@ -31,11 +31,12 @@ Shader "Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing"
 
             HLSLPROGRAM
 
-                #pragma vertex VertEdge
-                #pragma fragment FragEdge
-                #include "SubpixelMorphologicalAntialiasingBridge.hlsl"
+            #pragma vertex VertEdge
+            #pragma fragment FragEdge
+            #include "SubpixelMorphologicalAntialiasingBridge.hlsl"
 
             ENDHLSL
+
         }
 
         // Blend Weights Calculation
@@ -52,11 +53,12 @@ Shader "Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing"
 
             HLSLPROGRAM
 
-                #pragma vertex VertBlend
-                #pragma fragment FragBlend
-                #include "SubpixelMorphologicalAntialiasingBridge.hlsl"
+            #pragma vertex VertBlend
+            #pragma fragment FragBlend
+            #include "SubpixelMorphologicalAntialiasingBridge.hlsl"
 
             ENDHLSL
+
         }
 
         // Neighborhood Blending
@@ -64,11 +66,12 @@ Shader "Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing"
         {
             HLSLPROGRAM
 
-                #pragma vertex VertNeighbor
-                #pragma fragment FragNeighbor
-                #include "SubpixelMorphologicalAntialiasingBridge.hlsl"
+            #pragma vertex VertNeighbor
+            #pragma fragment FragNeighbor
+            #include "SubpixelMorphologicalAntialiasingBridge.hlsl"
 
             ENDHLSL
+
         }
     }
 }
