@@ -898,6 +898,7 @@ namespace UnityEngine.Rendering.Universal
                 else
                     finalClearFlag |= (renderPass.clearFlag & ClearFlag.Depth);
 
+                //? 为了给TerrainColor 强制Clear
                 finalClearFlag |= renderPass.clearFlag;
 
                 // Only setup render target if current render pass attachments are different from the active ones

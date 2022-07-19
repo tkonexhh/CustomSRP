@@ -80,20 +80,10 @@ namespace UnityEngine.Rendering.Universal
         }
 
 
-        public static float maxShadowBias
-        {
-            get => 10.0f;
-        }
+        public static float maxShadowBias => 10.0f;
+        public static float minRenderScale => 0.1f;
+        public static float maxRenderScale => 2.0f;
 
-        public static float minRenderScale
-        {
-            get => 0.1f;
-        }
-
-        public static float maxRenderScale
-        {
-            get => 2.0f;
-        }
 
         // Amount of Lights that can be shaded per object (in the for loop in the shader)
         public static int maxPerObjectLights
@@ -121,6 +111,7 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
+
         public UniversalRenderPipeline(UniversalRenderPipelineAsset asset)
         {
             SetSupportedRenderingFeatures();
@@ -133,12 +124,10 @@ namespace UnityEngine.Rendering.Universal
             if (msaaSampleCountNeedsUpdate)
             {
                 QualitySettings.antiAliasing = asset.msaaSampleCount;
-
             }
 
 
-            // For compatibility reasons we also match old LightweightPipeline tag.
-            Shader.globalRenderPipeline = "UniversalPipeline,LightweightPipeline";
+            Shader.globalRenderPipeline = "UniversalPipeline";//影响shader RenderPipeline tag
 
             Lightmapping.SetDelegate(lightsDelegate);
 
@@ -154,8 +143,6 @@ namespace UnityEngine.Rendering.Universal
             Shader.globalRenderPipeline = "";
             SupportedRenderingFeatures.active = new SupportedRenderingFeatures();
             ShaderData.instance.Dispose();
-            // DeferredShaderData.instance.Dispose();
-
 
 
 #if UNITY_EDITOR
@@ -178,6 +165,7 @@ namespace UnityEngine.Rendering.Universal
         protected override void Render(ScriptableRenderContext renderContext, Camera[] cameras)
 #endif
         {
+
             // TODO: Would be better to add Profiling name hooks into RenderPipelineManager.
             // C#8 feature, only in >= 2020.2
             using var profScope = new ProfilingScope(null, ProfilingSampler.Get(URPProfileId.UniversalRenderTotal));
@@ -195,7 +183,7 @@ namespace UnityEngine.Rendering.Universal
 #endif
 
             GraphicsSettings.lightsUseLinearIntensity = (QualitySettings.activeColorSpace == ColorSpace.Linear);
-            GraphicsSettings.useScriptableRenderPipelineBatching = asset.useSRPBatcher;
+            GraphicsSettings.useScriptableRenderPipelineBatching = asset.useSRPBatcher;//是否使用SRPBatcher
             SetupPerFrameShaderConstants();
 
 

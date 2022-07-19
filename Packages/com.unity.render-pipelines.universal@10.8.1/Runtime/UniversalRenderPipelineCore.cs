@@ -636,14 +636,14 @@ namespace UnityEngine.Rendering.Universal
         // GPU
         AdditionalLightsShadow,
         ColorGradingLUT,
-        CopyColor,
+        // CopyColor,
         CopyDepth,
         DepthNormalPrepass,
-        DepthPrepass,
+        // DepthPrepass,
 
         // DrawObjectsPass
-        DrawOpaqueObjects,
-        DrawTransparentObjects,
+        // DrawOpaqueObjects,
+        // DrawTransparentObjects,
 
         // RenderObjectsPass
         //RenderObjects,

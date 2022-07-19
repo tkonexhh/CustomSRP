@@ -34,6 +34,7 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent backgroundType = EditorGUIUtility.TrTextContent("Background Type", "Controls how to initialize the Camera's background.\n\nSkybox initializes camera with Skybox, defaulting to a background color if no skybox is found.\n\nSolid Color initializes background with the background color.\n\nUninitialized has undefined values for the camera background. Use this only if you are rendering all pixels in the Camera's view.");
             public static GUIContent cameraType = EditorGUIUtility.TrTextContent("Render Type", "Controls which type of camera this is.");
             public static GUIContent renderingShadows = EditorGUIUtility.TrTextContent("Render Shadows", "Makes this camera render shadows.");
+            public static GUIContent useScreenSpaceShadow = EditorGUIUtility.TrTextContent("Use Screen Space Shadow", "Use Screen Space Shadow.");
             public static GUIContent requireDepthTexture = EditorGUIUtility.TrTextContent("Depth Texture", "On makes this camera create a _CameraDepthTexture, which is a copy of the rendered depth values.\nOff makes the camera not create a depth texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent requireOpaqueTexture = EditorGUIUtility.TrTextContent("Opaque Texture", "On makes this camera create a _CameraOpaqueTexture, which is a copy of the rendered view.\nOff makes the camera not create an opaque texture.\nUse Pipeline Settings applies settings from the Render Pipeline Asset.");
             public static GUIContent allowMSAA = EditorGUIUtility.TrTextContent("MSAA", "Use Multi Sample Anti-Aliasing to reduce aliasing.");
@@ -124,6 +125,7 @@ namespace UnityEditor.Rendering.Universal
         readonly AnimBool m_ShowTargetEyeAnim = new AnimBool();
 
         SerializedProperty m_AdditionalCameraDataRenderShadowsProp;
+        SerializedProperty m_AdditionalCameraDataUseScreenSpaceShadowProp;
         SerializedProperty m_AdditionalCameraDataRenderDepthProp;
         SerializedProperty m_AdditionalCameraDataRenderOpaqueProp;
         SerializedProperty m_AdditionalCameraDataRendererProp;
@@ -402,6 +404,7 @@ namespace UnityEditor.Rendering.Universal
 
             m_AdditionalCameraDataSO = new SerializedObject(additionalCameraData.ToArray());
             m_AdditionalCameraDataRenderShadowsProp = m_AdditionalCameraDataSO.FindProperty("m_RenderShadows");
+            m_AdditionalCameraDataUseScreenSpaceShadowProp = m_AdditionalCameraDataSO.FindProperty("m_UseScreenSpaceShadow");
             m_AdditionalCameraDataRenderDepthProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresDepthTextureOption");
             m_AdditionalCameraDataRenderOpaqueProp = m_AdditionalCameraDataSO.FindProperty("m_RequiresOpaqueTextureOption");
             m_AdditionalCameraDataRendererProp = m_AdditionalCameraDataSO.FindProperty("m_RendererIndex");
@@ -906,6 +909,9 @@ namespace UnityEditor.Rendering.Universal
         void DrawRenderShadows()
         {
             EditorGUILayout.PropertyField(m_AdditionalCameraDataRenderShadowsProp, Styles.renderingShadows);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(m_AdditionalCameraDataUseScreenSpaceShadowProp, Styles.useScreenSpaceShadow);
+            EditorGUI.indentLevel--;
         }
 
         void EndProperty()

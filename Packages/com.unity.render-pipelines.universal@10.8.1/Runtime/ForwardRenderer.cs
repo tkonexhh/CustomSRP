@@ -3,20 +3,7 @@ using System.Reflection;
 
 namespace UnityEngine.Rendering.Universal
 {
-    /// <summary>
-    /// Rendering modes for Universal renderer.
-    /// </summary>
-    public enum RenderingMode
-    {
-        /// <summary>Render all objects and lighting in one pass, with a hard limit on the number of lights that can be applied on an object.</summary>
-        Forward,
-    };
 
-    /// <summary>
-    /// Default renderer for Universal RP.
-    /// This renderer is supported on all Universal RP supported platforms.
-    /// It uses a classic forward rendering strategy with per-object light culling.
-    /// </summary>
     public sealed class ForwardRenderer : ScriptableRenderer
     {
         const int k_DepthStencilBufferBits = 32;
@@ -36,7 +23,7 @@ namespace UnityEngine.Rendering.Universal
         DrawTerrainPass m_DrawTerrainPass;
         DrawOpaquePass m_DrawOpaquePass;
         DrawSkyboxPass m_DrawSkyboxPass;
-        CopyDepthPass m_CopyDepthPass;
+        // CopyDepthPass m_CopyDepthPass;
         CopyColorPass m_CopyColorPassTerrainToColor;
         CopyColorPass m_CopyColorPass;
         CopyColorPass m_CopyColorPass_AfterTransparent;
@@ -68,9 +55,6 @@ namespace UnityEngine.Rendering.Universal
         RenderTargetHandle m_TransparentColor;
         RenderTargetHandle m_AfterPostProcessColor;
         RenderTargetHandle m_ColorGradingLut;
-        // For tiled-deferred shading.
-        // RenderTargetHandle m_DepthInfoTexture;
-        // RenderTargetHandle m_TileDepthInfoTexture;
 
         ForwardLights m_ForwardLights;
 
@@ -81,15 +65,12 @@ namespace UnityEngine.Rendering.Universal
         Material m_SamplingMaterial;
         Material m_ScreenspaceShadowsMaterial;
 
-        // Material m_StencilDeferredMaterial;
-
         public ForwardRenderer(ForwardRendererData data) : base(data)
         {
             m_BlitMaterial = CoreUtils.CreateEngineMaterial(data.shaders.blitPS);
             m_CopyDepthMaterial = CoreUtils.CreateEngineMaterial(data.shaders.copyDepthPS);
             m_SamplingMaterial = CoreUtils.CreateEngineMaterial(data.shaders.samplingPS);
             m_ScreenspaceShadowsMaterial = CoreUtils.CreateEngineMaterial(data.shaders.screenSpaceShadowPS);
-            // m_StencilDeferredMaterial = CoreUtils.CreateEngineMaterial(data.shaders.stencilDeferredPS);
 
             StencilStateData stencilData = data.defaultStencilState;
             m_DefaultStencilState = StencilState.defaultValue;
@@ -101,16 +82,13 @@ namespace UnityEngine.Rendering.Universal
 
             m_ForwardLights = new ForwardLights();
 
-            // Note: Since all custom render passes inject first and we have stable sort,
-            // we inject the builtin passes in the before events.
             m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
             m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
-
-            m_DepthPrepass = new DepthOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, RenderQueueRange.opaque, data.opaqueLayerMask);
-            m_DepthNormalPrepass = new DepthNormalOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, RenderQueueRange.opaque, data.opaqueLayerMask);
+            m_DepthPrepass = new DepthOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.opaqueLayerMask);
+            m_DepthNormalPrepass = new DepthNormalOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.opaqueLayerMask);
             m_ColorGradingLutPass = new ColorGradingLutPass(RenderPassEvent.BeforeRenderingPrepasses, data.postProcessData);
 
-            m_DrawTerrainPass = new DrawTerrainPass(RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.terrainLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_DrawTerrainPass = new DrawTerrainPass(RenderPassEvent.BeforeRenderingOpaques, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.terrainLayerMask, m_DefaultStencilState, stencilData.stencilReference);
             m_CopyColorPassTerrainToColor = new CopyColorPass(RenderPassEvent.BeforeRenderingOpaques, m_SamplingMaterial, m_BlitMaterial);
 
             LayerMask realDrawOpaqueLayerMask = data.opaqueLayerMask;
@@ -118,16 +96,16 @@ namespace UnityEngine.Rendering.Universal
             {
                 realDrawOpaqueLayerMask &= ~data.terrainLayerMask;
             }
-            m_DrawOpaquePass = new DrawOpaquePass(RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, realDrawOpaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_DrawOpaquePass = new DrawOpaquePass(RenderPassEvent.BeforeRenderingOpaques, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, realDrawOpaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
 
-            m_CopyDepthPass = new CopyDepthPass(RenderPassEvent.AfterRenderingSkybox, m_CopyDepthMaterial);
+            // m_CopyDepthPass = new CopyDepthPass(RenderPassEvent.AfterRenderingSkybox, m_CopyDepthMaterial);
             m_DrawSkyboxPass = new DrawSkyboxPass(RenderPassEvent.BeforeRenderingSkybox);
             m_CopyColorPass = new CopyColorPass(RenderPassEvent.AfterRenderingSkybox, m_SamplingMaterial, m_BlitMaterial);
 
             m_TransparentSettingsPass = new TransparentSettingsPass(RenderPassEvent.BeforeRenderingTransparents, data.shadowTransparentReceive);
-            m_DrawTransparentPass = new DrawTransparentPass(RenderPassEvent.BeforeRenderingTransparents, RenderQueueRange.transparent, data.transparentLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_DrawTransparentPass = new DrawTransparentPass(RenderPassEvent.BeforeRenderingTransparents, ShaderDefine.TRANSPARENT_RENDER_QUEUE_RANGE, data.transparentLayerMask, m_DefaultStencilState, stencilData.stencilReference);
             m_CopyColorPass_AfterTransparent = new CopyColorPass(RenderPassEvent.BeforeRenderingTransparents + 1, m_SamplingMaterial, m_BlitMaterial);
-            m_DrawRefractPass = new DrawRefractPass(RenderPassEvent.BeforeRenderingTransparents + 2, RenderQueueRange.transparent, data.transparentLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_DrawRefractPass = new DrawRefractPass(RenderPassEvent.BeforeRenderingTransparents + 2, ShaderDefine.TRANSPARENT_RENDER_QUEUE_RANGE, data.transparentLayerMask, m_DefaultStencilState, stencilData.stencilReference);
 
             m_OnRenderObjectCallbackPass = new InvokeOnRenderObjectCallbackPass(RenderPassEvent.BeforeRenderingPostProcessing);
             m_PostProcessPass = new PostProcessPass(RenderPassEvent.BeforeRenderingPostProcessing, data.postProcessData, m_BlitMaterial);
@@ -151,8 +129,6 @@ namespace UnityEngine.Rendering.Universal
             m_TransparentColor.Init("_CameraTransparentTexture");
             m_AfterPostProcessColor.Init("_AfterPostProcessTexture");
             m_ColorGradingLut.Init("_InternalGradingLut");
-            // m_DepthInfoTexture.Init("_DepthInfoTexture");
-            // m_TileDepthInfoTexture.Init("_TileDepthInfoTexture");
 
             supportedRenderingFeatures = new RenderingFeatures()
             {
@@ -201,6 +177,7 @@ namespace UnityEngine.Rendering.Universal
             bool isPreviewCamera = cameraData.isPreviewCamera;
 
 
+
             var createColorTexture = (rendererFeatures.Count != 0) && !isPreviewCamera;
             if (createColorTexture)
             {
@@ -242,9 +219,11 @@ namespace UnityEngine.Rendering.Universal
             requiresDepthPrepass |= renderPassInputs.requiresDepthPrepass;
             requiresDepthPrepass |= renderPassInputs.requiresNormalsTexture;
 
+
+
             // The copying of depth should normally happen after rendering opaques.
             // But if we only require it for post processing or the scene camera then we do it after rendering transparent objects
-            m_CopyDepthPass.renderPassEvent = (!requiresDepthTexture && (applyPostProcessing || isSceneViewCamera)) ? RenderPassEvent.AfterRenderingTransparents : RenderPassEvent.AfterRenderingOpaques;
+            // m_CopyDepthPass.renderPassEvent = (!requiresDepthTexture && (applyPostProcessing || isSceneViewCamera)) ? RenderPassEvent.AfterRenderingTransparents : RenderPassEvent.AfterRenderingOpaques;
             createColorTexture |= RequiresIntermediateColorTexture(ref cameraData);
             createColorTexture |= renderPassInputs.requiresColorTexture;
             createColorTexture &= !isPreviewCamera;
@@ -290,11 +269,6 @@ namespace UnityEngine.Rendering.Universal
                 m_ActiveCameraDepthAttachment = m_CameraDepthAttachment;
             }
 
-            // If a depth texture was created we necessarily need to copy it, otherwise we could have render it to a renderbuffer.
-            // If deferred rendering path was selected, it has already made a copy.
-            bool requiresDepthCopyPass = !requiresDepthPrepass
-                                         && renderingData.cameraData.requiresDepthTexture
-                                         && createDepthTexture;
             bool copyColorPass = renderingData.cameraData.requiresOpaqueTexture || renderPassInputs.requiresColorTexture;
 
             // Assign camera targets (color and depth)
@@ -344,7 +318,7 @@ namespace UnityEngine.Rendering.Universal
                 opaquePassColorStoreAction = copyColorPass ? RenderBufferStoreAction.StoreAndResolve : RenderBufferStoreAction.Store;
 
             // make sure we store the depth only if following passes need it.
-            RenderBufferStoreAction opaquePassDepthStoreAction = (copyColorPass || requiresDepthCopyPass) ? RenderBufferStoreAction.Store : RenderBufferStoreAction.DontCare;
+            RenderBufferStoreAction opaquePassDepthStoreAction = copyColorPass ? RenderBufferStoreAction.Store : RenderBufferStoreAction.DontCare;
 
             bool needBlendTerrain = UniversalRenderPipeline.asset.supportBlendTerrain;//如果需要混合的话
             needBlendTerrain &= !renderingData.cameraData.isUICamera;//不是UICamera
@@ -372,14 +346,9 @@ namespace UnityEngine.Rendering.Universal
             if (camera.clearFlags == CameraClearFlags.Skybox && (RenderSettings.skybox != null || cameraSkybox?.material != null) && !isOverlayCamera)
                 EnqueuePass(m_DrawSkyboxPass);
 
-            if (requiresDepthCopyPass)
-            {
-                m_CopyDepthPass.Setup(m_ActiveCameraDepthAttachment, m_DepthTexture);
-                EnqueuePass(m_CopyDepthPass);
-            }
 
             // For Base Cameras: Set the depth texture to the far Z if we do not have a depth prepass or copy depth
-            if (cameraData.renderType == CameraRenderType.Base && !requiresDepthPrepass && !requiresDepthCopyPass)
+            if (cameraData.renderType == CameraRenderType.Base && !requiresDepthPrepass)
             {
                 Shader.SetGlobalTexture(m_DepthTexture.id, SystemInfo.usesReversedZBuffer ? Texture2D.blackTexture : Texture2D.whiteTexture);
             }
@@ -404,10 +373,6 @@ namespace UnityEngine.Rendering.Universal
             // if this is not lastCameraInTheStack we still need to Store, since the MSAA buffer might be needed by the Overlay cameras
             RenderBufferStoreAction transparentPassColorStoreAction = cameraTargetDescriptor.msaaSamples > 1 && lastCameraInTheStack ? RenderBufferStoreAction.Resolve : RenderBufferStoreAction.Store;
             RenderBufferStoreAction transparentPassDepthStoreAction = RenderBufferStoreAction.DontCare;
-
-            // If CopyDepthPass pass event is scheduled on or after AfterRenderingTransparent, we will need to store the depth buffer or resolve (store for now until latest trunk has depth resolve support) it for MSAA case
-            if (requiresDepthCopyPass && m_CopyDepthPass.renderPassEvent >= RenderPassEvent.AfterRenderingTransparents)
-                transparentPassDepthStoreAction = RenderBufferStoreAction.Store;
 
 
             m_DrawTransparentPass.ConfigureColorStoreAction(transparentPassColorStoreAction);

@@ -36,7 +36,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 m_RenderStateBlock.mask = RenderStateMask.Stencil;
                 m_RenderStateBlock.stencilState = stencilState;
             }
-            ConfigureClear(ClearFlag.All, Color.black);
+            ConfigureClear(ClearFlag.Color, Color.black);
         }
 
 
@@ -45,16 +45,6 @@ namespace UnityEngine.Rendering.Universal.Internal
             this.colorAttachmentHandle = colorAttachmentHandle;
             m_RenderTextureDescriptor = baseDescriptor;
         }
-
-
-        // public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
-        // {
-        //     cmd.GetTemporaryRT(colorAttachmentHandle.id, m_RenderTextureDescriptor, FilterMode.Bilinear);
-        //     //这里为啥没有ClearColor
-        //     ConfigureTarget(colorAttachmentHandle.Identifier());
-        //     // ConfigureTarget(new RenderTargetIdentifier(colorAttachmentHandle.Identifier(), 0, CubemapFace.Unknown, -1));
-        //     ConfigureClear(ClearFlag.All, Color.black);
-        // }
 
 
 

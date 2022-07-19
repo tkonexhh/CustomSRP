@@ -17,6 +17,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         FilteringSettings m_FilteringSettings;
         ShaderTagId m_ShaderTagId = new ShaderTagId("DepthOnly");
+        ProfilingSampler m_ProfilingSampler;
 
         /// <summary>
         /// Create the DepthOnlyPass
@@ -24,6 +25,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         public DepthOnlyPass(RenderPassEvent evt, RenderQueueRange renderQueueRange, LayerMask layerMask)
         {
             base.profilingSampler = new ProfilingSampler(nameof(DepthOnlyPass));
+            m_ProfilingSampler = new ProfilingSampler("DepthOnly");
             m_FilteringSettings = new FilteringSettings(renderQueueRange, layerMask);
             renderPassEvent = evt;
         }
@@ -56,7 +58,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             // NOTE: Do NOT mix ProfilingScope with named CommandBuffers i.e. CommandBufferPool.Get("name").
             // Currently there's an issue which results in mismatched markers.
             CommandBuffer cmd = CommandBufferPool.Get();
-            using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.DepthPrepass)))
+            using (new ProfilingScope(cmd, m_ProfilingSampler))
             {
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();

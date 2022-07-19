@@ -243,11 +243,12 @@ namespace UnityEngine.Rendering.Universal
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Camera))]
     [ImageEffectAllowedInSceneView]
-    [MovedFrom("UnityEngine.Rendering.LWRP")]
     public class UniversalAdditionalCameraData : MonoBehaviour, ISerializationCallbackReceiver
     {
         [FormerlySerializedAs("renderShadows"), SerializeField]
         bool m_RenderShadows = true;
+
+        [SerializeField] bool m_UseScreenSpaceShadow = false;
 
         [SerializeField] CameraOverrideOption m_RequiresDepthTextureOption = CameraOverrideOption.UsePipelineSettings;
         [SerializeField] CameraOverrideOption m_RequiresDepthNormalsTextureOption = CameraOverrideOption.UsePipelineSettings;
@@ -318,6 +319,12 @@ namespace UnityEngine.Rendering.Universal
         {
             get => m_RenderShadows;
             set => m_RenderShadows = value;
+        }
+
+        public bool useScreenSpaceShadow
+        {
+            get => m_UseScreenSpaceShadow;
+            set => m_UseScreenSpaceShadow = value;
         }
 
         /// <summary>

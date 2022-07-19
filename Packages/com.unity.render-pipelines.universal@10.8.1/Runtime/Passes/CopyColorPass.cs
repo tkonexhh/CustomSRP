@@ -15,6 +15,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         Material m_SamplingMaterial;
         Downsampling m_DownsamplingMethod;
         Material m_CopyColorMaterial;
+        ProfilingSampler m_ProfilingSampler;
 
         private RenderTargetIdentifier source { get; set; }
         private RenderTargetHandle destination { get; set; }
@@ -25,12 +26,14 @@ namespace UnityEngine.Rendering.Universal.Internal
         public CopyColorPass(RenderPassEvent evt, Material samplingMaterial, Material copyColorMaterial = null)
         {
             base.profilingSampler = new ProfilingSampler(nameof(CopyColorPass));
+            m_ProfilingSampler = new ProfilingSampler("CopyColorPass");
 
             m_SamplingMaterial = samplingMaterial;
             m_CopyColorMaterial = copyColorMaterial;
             m_SampleOffsetShaderHandle = Shader.PropertyToID("_SampleOffset");
             renderPassEvent = evt;
             m_DownsamplingMethod = Downsampling.None;
+
         }
 
         /// <summary>
@@ -74,7 +77,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             }
 
             CommandBuffer cmd = CommandBufferPool.Get();
-            using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.CopyColor)))
+            using (new ProfilingScope(cmd, m_ProfilingSampler))
             {
                 RenderTargetIdentifier opaqueColorRT = destination.Identifier();
 
