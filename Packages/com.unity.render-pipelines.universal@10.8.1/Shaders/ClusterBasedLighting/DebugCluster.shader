@@ -63,7 +63,7 @@ Shader "Hidden/ClusterBasedLighting"
             float4 WorldToProject(float3 posWorld)
             {
                 float4 l_posWorld = mul(_CameraWorldMatrix, posWorld);
-                float4 posVP0 = TransformObjectToHClip(l_posWorld);
+                float4 posVP0 = TransformWorldToHClip(l_posWorld);
                 return posVP0;
             }
 
@@ -77,16 +77,11 @@ Shader "Hidden/ClusterBasedLighting"
 
                 float3 center = (aabb.Max + aabb.Min) * 0.5;
                 float3 scale = (aabb.Max - center) / 0.5;
-                scale *= 0.5;
+                scale *= 0.2;
                 input.positionOS.xyz = input.positionOS.xyz * scale + center;
-                // vsOutput.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-                
-
-                float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
-                // vsOutput.positionCS = TransformWorldToHClip(input.positionOS.xyz);//(positionWS);
-                
-                vsOutput.positionCS = WorldToProject(input.positionOS.xyz);
-
+                float4 positionWS = mul(_CameraWorldMatrix, input.positionOS);
+                float4 positionCS = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_V, positionWS));
+                vsOutput.positionCS = positionCS;
                 return vsOutput;
             }
             

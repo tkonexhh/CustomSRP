@@ -311,9 +311,8 @@ namespace UnityEngine.Rendering.Universal
                 EnqueuePass(m_ColorGradingLutPass);
             }
 
-            //TODO 如果不支持SSBO 也不执行
-            bool requiresClusterBasedLighting = renderingData.lightData.supportClusterBasedLighting;
-            if (requiresClusterBasedLighting)
+
+            if (renderingData.lightData.supportClusterBasedLighting)
                 EnqueuePass(m_ClusterBasedLights);
 
 
@@ -480,6 +479,10 @@ namespace UnityEngine.Rendering.Universal
         public override void SetupLights(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             m_ForwardLights.Setup(context, ref renderingData);
+            if (renderingData.lightData.supportClusterBasedLighting)
+            {
+                m_ClusterBasedLights.SetupLights(context, ref renderingData);
+            }
         }
 
         /// <inheritdoc />

@@ -882,6 +882,7 @@ namespace UnityEngine.Rendering.Universal
             int maxPerObjectAdditionalLights = UniversalRenderPipeline.maxPerObjectLights;
             int maxVisibleAdditionalLights = UniversalRenderPipeline.maxVisibleAdditionalLights;
 
+            //TODO 不支持SSBO 也不支持
             lightData.supportClusterBasedLighting = settings.supprotClusterBasedLighting;
             lightData.mainLightIndex = mainLightIndex;
 

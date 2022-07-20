@@ -1,59 +1,15 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
+#pragma kernel ClusterAABB
+#pragma kernel AssignLightsToClusters
 
-//Cluster Data
-uint3 ClusterCB_GridDim;      // The 3D dimensions of the cluster grid.
-float ClusterCB_ViewNear;     // The distance to the near clipping plane. (Used for computing the index in the cluster grid)
-uint2 ClusterCB_Size;         // The size of a cluster in screen space (pixels).
-float ClusterCB_NearK;        // ( 1 + ( 2 * tan( fov * 0.5 ) / ClusterGridDim.y ) ) // Used to compute the near plane for clusters at depth k.
-float ClusterCB_LogGridDimY;  // 1.0f / log( 1 + ( tan( fov * 0.5 ) / ClusterGridDim.y )
-float4 ClusterCB_ScreenDimensions;
+
+#include "./ClusterBasedLightingCommon.hlsl"
 
 float4x4 _InverseProjectionMatrix;
 
-struct AABB
-{
-    float3 Min;
-    float3 Max;
-};
+RWStructuredBuffer<AABB> RWClusterAABBs;
 
-struct Plane
-{
-    float3 N;   // Plane normal.
-    float d;   // Distance to origin.
 
-};
-
-//1D坐标转3D坐标
-uint3 ComputeClusterIndex3D(uint clusterIndex1D)
-{
-    uint i = clusterIndex1D % ClusterCB_GridDim.x;
-    uint j = clusterIndex1D % (ClusterCB_GridDim.x * ClusterCB_GridDim.y) / ClusterCB_GridDim.x;
-    uint k = clusterIndex1D / (ClusterCB_GridDim.x * ClusterCB_GridDim.y);
-
-    return uint3(i, j, k);
-}
-
-//3D坐标转1D坐标
-uint ComputeClusterIndex1D(uint3 clusterIndex3D)
-{
-    return clusterIndex3D.x + (ClusterCB_GridDim.x * (clusterIndex3D.y + ClusterCB_GridDim.y * clusterIndex3D.z));
-}
-
-/**
-* Compute the 3D cluster index from a 2D screen position and Z depth in view space.
-* source: Clustered deferred and forward shading (Olsson, Billeter, Assarsson, 2012)
-*/
-uint3 ComputeClusterIndex3D(float2 screenPos, float viewZ)
-{
-    uint i = screenPos.x / ClusterCB_Size.x;
-    uint j = screenPos.y / ClusterCB_Size.y;
-    // It is assumed that view space z is negative (right-handed coordinate system)
-    // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(viewZ / ClusterCB_ViewNear) * ClusterCB_LogGridDimY;
-
-    return uint3(i, j, k);
-}
 
 /**
 * Find the intersection of a line segment with a plane.
@@ -104,11 +60,11 @@ float4 ScreenToView(float4 screen)
 }
 
 
-RWStructuredBuffer<AABB> RWClusterAABBs;
+
 
 
 [numthreads(1024, 1, 1)]
-void CSMain(uint3 id: SV_DispatchThreadID)
+void ClusterAABB(uint3 id: SV_DispatchThreadID)
 {
     
     uint clusterIndex1D = id.x;
@@ -153,4 +109,109 @@ void CSMain(uint3 id: SV_DispatchThreadID)
     };
     
     RWClusterAABBs[clusterIndex1D] = aabb;
+}
+
+
+///////////////////////////////////////////
+#define NUM_THREADS 1024
+
+RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
+RWStructuredBuffer<uint2> RWPointLightGrid_Cluster;// : register(u4);
+RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
+
+StructuredBuffer<uint> UniqueClusters;
+StructuredBuffer<AABB> ClusterAABBs;// : register(t1);
+StructuredBuffer<float4> PointLights;// : register(t8);
+
+uint PointLightCount;//点光源总数量
+float4x4 _CameraLastViewMatrix;
+
+//groupshared 是一个cluster共有了 在AssignLightsToClusters 一次执行过程中共有
+groupshared uint gs_ClusterIndex1D;
+groupshared AABB gs_ClusterAABB;
+
+groupshared uint gs_PointLightCount;
+groupshared uint gs_PointLightStartOffset;
+groupshared uint gs_PointLightList[1024];//每个Cluster 可以存放1024个点光源
+
+
+float4 TransformWorldToView(float4 posWorld)
+{
+    float4 posView = mul(_CameraLastViewMatrix, posWorld);
+    posView.z *= -1;
+    return posView;
+}
+
+// #define AppendLight(lightIndex, counter, lightList) \
+//     InterlockedAdd(counter, 1, lightIndex); \
+//     if (lightIndex < 1024) \
+// {
+//     \
+//      lightList[lightIndex] = lightIndex; \
+// }
+
+
+[numthreads(NUM_THREADS, 1, 1)]
+void AssignLightsToClusters(ComputeShaderInput IN)
+{
+    uint i, index;
+    //此核心首次调用时候 初始化groupshared变量
+    if (IN.GroupIndex == 0)
+    {
+        gs_PointLightCount = 0;
+
+        gs_ClusterIndex1D = UniqueClusters[IN.GroupID.x];
+        gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
+    }
+
+    //阻塞进程
+    //等待对GroupShared变量的访问
+    GroupMemoryBarrierWithGroupSync();
+
+    //计算当前 cluster  所受点光源影响的总个数 并填充光源index 列表
+    for (i = IN.GroupIndex; i < PointLightCount; i += NUM_THREADS)
+    {
+        float4 pointLight = PointLights[i];
+        float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.xyz, 1)).xyz;
+        Sphere sphere = {
+            pointLightPositionVS, pointLight.w
+        };
+
+        if (SphereInsideAABB(sphere, gs_ClusterAABB))
+        {
+            //向目标cluster添加pointlight 下标
+            //gs_PointLightCount ++
+            //每个cluster存放的pointLightIndex 填充pointlist 的列表
+            // AppendLight(i, gs_PointLightCount, gs_PointLightList);
+            InterlockedAdd(gs_PointLightCount, 1, i);
+            if (i < 1024)
+            {
+                gs_PointLightList[i] = i;
+            }
+        }
+    }
+
+    //阻塞进程
+    GroupMemoryBarrierWithGroupSync();
+
+    //使用gs_PointLightStartOffset，gs_PointLightCount，填充light grid
+    // Now update the global light grids with the light lists and light counts.
+    if (IN.GroupIndex == 0)
+    {
+        // Update light grid for point lights.
+        //gs_PointLightCount 是本次计算的点光源数量
+        InterlockedAdd(RWPointLightIndexCounter_Cluster[0], gs_PointLightCount, gs_PointLightStartOffset);
+        // 存放的是起始坐标 以及总数量 这样就可以方便计算了
+        RWPointLightGrid_Cluster[gs_ClusterIndex1D] = uint2(gs_PointLightStartOffset, gs_PointLightCount);
+    }
+
+
+    GroupMemoryBarrierWithGroupSync();
+
+    //填充light 列表
+    // Now update the global light index lists with the group shared light lists.
+    for (i = IN.GroupIndex; i < gs_PointLightCount; i += NUM_THREADS)
+    {
+        RWPointLightIndexList_Cluster[gs_PointLightStartOffset +i] = gs_PointLightList[i];
+    }
 }
