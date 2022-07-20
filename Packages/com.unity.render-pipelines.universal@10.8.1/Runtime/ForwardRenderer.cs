@@ -57,6 +57,7 @@ namespace UnityEngine.Rendering.Universal
         RenderTargetHandle m_ColorGradingLut;
 
         ForwardLights m_ForwardLights;
+        ClusterBasedLights m_ClusterBasedLights;
 
         StencilState m_DefaultStencilState;
 
@@ -81,6 +82,7 @@ namespace UnityEngine.Rendering.Universal
             m_DefaultStencilState.SetZFailOperation(stencilData.zFailOperation);
 
             m_ForwardLights = new ForwardLights();
+            m_ClusterBasedLights = new ClusterBasedLights();
 
             m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
             m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
@@ -308,6 +310,11 @@ namespace UnityEngine.Rendering.Universal
                 m_ColorGradingLutPass.Setup(m_ColorGradingLut);
                 EnqueuePass(m_ColorGradingLutPass);
             }
+
+            //TODO 如果不支持SSBO 也不执行
+            bool requiresClusterBasedLighting = renderingData.lightData.supportClusterBasedLighting;
+            if (requiresClusterBasedLighting)
+                EnqueuePass(m_ClusterBasedLights);
 
 
             // Optimized store actions are very important on tile based GPUs and have a great impact on performance.

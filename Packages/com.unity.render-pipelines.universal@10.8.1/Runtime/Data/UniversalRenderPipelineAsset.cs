@@ -9,14 +9,6 @@ using UnityEditorInternal;
 using System.ComponentModel;
 using System.Linq;
 
-namespace UnityEngine.Rendering.LWRP
-{
-    [Obsolete("LWRP -> Universal (UnityUpgradable) -> UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset", true)]
-    public class LightweightRenderPipelineAsset
-    {
-    }
-}
-
 
 namespace UnityEngine.Rendering.Universal
 {
@@ -160,9 +152,11 @@ namespace UnityEngine.Rendering.Universal
         // TODO: Shader Quality Tiers
 
         // Main directional light Settings
+        [SerializeField] bool m_ClusterBasedLighting = false;
         [SerializeField] LightRenderingMode m_MainLightRenderingMode = LightRenderingMode.PerPixel;
         [SerializeField] bool m_MainLightShadowsSupported = true;
         [SerializeField] ShadowResolution m_MainLightShadowmapResolution = ShadowResolution._2048;
+
 
         // Additional lights settings
         [SerializeField] LightRenderingMode m_AdditionalLightsRenderingMode = LightRenderingMode.PerPixel;
@@ -413,6 +407,8 @@ namespace UnityEngine.Rendering.Universal
 #endif
         }
 
+
+
         /// <summary>
         /// Returns the default renderer being used by this pipeline.
         /// </summary>
@@ -490,7 +486,7 @@ namespace UnityEngine.Rendering.Universal
 
                 for (var i = 1; i < list.Length; i++)
                 {
-                    list[i] = new GUIContent($"{(i - 1).ToString()}: {RendererDataDisplayName(m_RendererDataList[i-1])}");
+                    list[i] = new GUIContent($"{(i - 1).ToString()}: {RendererDataDisplayName(m_RendererDataList[i - 1])}");
                 }
                 return list;
             }
@@ -588,6 +584,10 @@ namespace UnityEngine.Rendering.Universal
             get { return m_BlendTerrain; }
         }
 
+        public bool supprotClusterBasedLighting
+        {
+            get { return m_ClusterBasedLighting; }
+        }
 
         public LightRenderingMode mainLightRenderingMode
         {
@@ -819,7 +819,7 @@ namespace UnityEngine.Rendering.Universal
                 if (m_DefaultShader == null)
                 {
                     string path = AssetDatabase.GUIDToAssetPath(ShaderUtils.GetShaderGUID(ShaderPathID.Lit));
-                    m_DefaultShader  = AssetDatabase.LoadAssetAtPath<Shader>(path);
+                    m_DefaultShader = AssetDatabase.LoadAssetAtPath<Shader>(path);
                 }
 #endif
 
@@ -870,7 +870,14 @@ namespace UnityEngine.Rendering.Universal
         {
             get { return editorResources?.shaders.defaultSpeedTree8PS; }
         }
+
 #endif
+
+        public ComputeShader clusterBasedLightingComputeShader
+        {
+            get { return editorResources.computeShaders.clusterBasedLighting; }
+        }
+
 
         public void OnBeforeSerialize()
         {
@@ -935,7 +942,7 @@ namespace UnityEngine.Rendering.Universal
 #if UNITY_EDITOR
         static void UpgradeAsset(UniversalRenderPipelineAsset asset)
         {
-            if(asset.k_AssetPreviousVersion < 5)
+            if (asset.k_AssetPreviousVersion < 5)
             {
                 if (asset.m_RendererType == RendererType.ForwardRenderer)
                 {

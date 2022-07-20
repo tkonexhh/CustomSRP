@@ -37,6 +37,7 @@ namespace UnityEngine.Rendering.Universal
     [MovedFrom("UnityEngine.Rendering.LWRP")]
     public struct LightData
     {
+        public bool supportClusterBasedLighting;
         public int mainLightIndex;
         public int additionalLightsCount;
         public int maxPerObjectAdditionalLightsCount;

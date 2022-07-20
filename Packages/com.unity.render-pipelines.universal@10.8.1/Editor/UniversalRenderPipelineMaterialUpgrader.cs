@@ -164,7 +164,8 @@ namespace UnityEditor.Rendering.Universal
         }
     }
 
-    [MovedFrom("UnityEditor.Rendering.LWRP")] public static class SupportedUpgradeParams
+    [MovedFrom("UnityEditor.Rendering.LWRP")]
+    public static class SupportedUpgradeParams
     {
         static public UpgradeParams diffuseOpaque = new UpgradeParams()
         {
@@ -257,7 +258,8 @@ namespace UnityEditor.Rendering.Universal
         };
     }
 
-    [MovedFrom("UnityEditor.Rendering.LWRP")] public class StandardUpgrader : MaterialUpgrader
+    [MovedFrom("UnityEditor.Rendering.LWRP")]
+    public class StandardUpgrader : MaterialUpgrader
     {
         enum LegacyRenderingMode
         {
@@ -272,7 +274,7 @@ namespace UnityEditor.Rendering.Universal
             if (material == null)
                 throw new ArgumentNullException("material");
 
-            if(material.GetTexture("_MetallicGlossMap"))
+            if (material.GetTexture("_MetallicGlossMap"))
                 material.SetFloat("_Smoothness", material.GetFloat("_GlossMapScale"));
             else
                 material.SetFloat("_Smoothness", material.GetFloat("_Glossiness"));
@@ -294,7 +296,7 @@ namespace UnityEditor.Rendering.Universal
             if (material == null)
                 throw new ArgumentNullException("material");
 
-            if(material.GetTexture("_SpecGlossMap"))
+            if (material.GetTexture("_SpecGlossMap"))
                 material.SetFloat("_Smoothness", material.GetFloat("_GlossMapScale"));
             else
                 material.SetFloat("_Smoothness", material.GetFloat("_Glossiness"));
@@ -416,7 +418,8 @@ namespace UnityEditor.Rendering.Universal
         }
     }
 
-    [MovedFrom("UnityEditor.Rendering.LWRP")] public class TerrainUpgrader : MaterialUpgrader
+    [MovedFrom("UnityEditor.Rendering.LWRP")]
+    public class TerrainUpgrader : MaterialUpgrader
     {
         public TerrainUpgrader(string oldShaderName)
         {
@@ -446,7 +449,8 @@ namespace UnityEditor.Rendering.Universal
         }
     }
 
-    [MovedFrom("UnityEditor.Rendering.LWRP")] public class ParticleUpgrader : MaterialUpgrader
+    [MovedFrom("UnityEditor.Rendering.LWRP")]
+    public class ParticleUpgrader : MaterialUpgrader
     {
         public ParticleUpgrader(string oldShaderName)
         {
@@ -514,7 +518,8 @@ namespace UnityEditor.Rendering.Universal
         }
     }
 
-    [MovedFrom("UnityEditor.Rendering.LWRP")] public class AutodeskInteractiveUpgrader : MaterialUpgrader
+    [MovedFrom("UnityEditor.Rendering.LWRP")]
+    public class AutodeskInteractiveUpgrader : MaterialUpgrader
     {
         public AutodeskInteractiveUpgrader(string oldShaderName)
         {

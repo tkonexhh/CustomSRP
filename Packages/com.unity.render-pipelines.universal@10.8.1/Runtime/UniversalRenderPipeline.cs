@@ -882,6 +882,7 @@ namespace UnityEngine.Rendering.Universal
             int maxPerObjectAdditionalLights = UniversalRenderPipeline.maxPerObjectLights;
             int maxVisibleAdditionalLights = UniversalRenderPipeline.maxVisibleAdditionalLights;
 
+            lightData.supportClusterBasedLighting = settings.supprotClusterBasedLighting;
             lightData.mainLightIndex = mainLightIndex;
 
             if (settings.additionalLightsRenderingMode != LightRenderingMode.Disabled)

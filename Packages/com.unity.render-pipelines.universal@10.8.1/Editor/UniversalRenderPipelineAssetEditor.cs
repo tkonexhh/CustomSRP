@@ -45,6 +45,7 @@ namespace UnityEditor.Rendering.Universal
             public static GUIContent mainLightRenderingModeText = EditorGUIUtility.TrTextContent("Main Light", "Main light is the brightest directional light.");
             public static GUIContent supportsMainLightShadowsText = EditorGUIUtility.TrTextContent("Cast Shadows", "If enabled the main light can be a shadow casting light.");
             public static GUIContent mainLightShadowmapResolutionText = EditorGUIUtility.TrTextContent("Shadow Resolution", "Resolution of the main light shadowmap texture. If cascades are enabled, cascades will be packed into an atlas and this setting controls the maximum shadows atlas resolution.");
+            public static GUIContent useClusterBasedLightingText = EditorGUIUtility.TrTextContent("ClusterBasedLighting", "Use ClusterBasedLighting");
 
             // Additional lights
             public static GUIContent addditionalLightsRenderingModeText = EditorGUIUtility.TrTextContent("Additional Lights", "Additional lights support.");
@@ -123,6 +124,7 @@ namespace UnityEditor.Rendering.Universal
         SerializedProperty m_RenderScale;
         SerializedProperty m_BlendTerrain;
 
+        SerializedProperty m_ClusterBasedLightingProp;
         SerializedProperty m_MainLightRenderingModeProp;
         SerializedProperty m_MainLightShadowsSupportedProp;
         SerializedProperty m_MainLightShadowmapResolutionProp;
@@ -203,6 +205,7 @@ namespace UnityEditor.Rendering.Universal
             m_RenderScale = serializedObject.FindProperty("m_RenderScale");
             m_BlendTerrain = serializedObject.FindProperty("m_BlendTerrain");
 
+            m_ClusterBasedLightingProp = serializedObject.FindProperty("m_ClusterBasedLighting");
             m_MainLightRenderingModeProp = serializedObject.FindProperty("m_MainLightRenderingMode");
             m_MainLightShadowsSupportedProp = serializedObject.FindProperty("m_MainLightShadowsSupported");
             m_MainLightShadowmapResolutionProp = serializedObject.FindProperty("m_MainLightShadowmapResolution");
@@ -316,6 +319,7 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUI.indentLevel++;
 
                 // Main Light
+                EditorGUILayout.PropertyField(m_ClusterBasedLightingProp, Styles.useClusterBasedLightingText);
                 bool disableGroup = false;
                 EditorGUI.BeginDisabledGroup(disableGroup);
                 CoreEditorUtils.DrawPopup(Styles.mainLightRenderingModeText, m_MainLightRenderingModeProp, Styles.mainLightOptions);
