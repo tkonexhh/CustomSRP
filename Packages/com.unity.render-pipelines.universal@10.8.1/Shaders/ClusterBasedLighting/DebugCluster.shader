@@ -38,11 +38,13 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
 
             StructuredBuffer<AABB> ClusterAABBs;// : register(t1);
             StructuredBuffer<uint2> PointLightGrid_Cluster;
+            StructuredBuffer<uint> UniqueClusters;
             float4x4 _CameraWorldMatrix;
 
             Varyings main_VS(Attributes input)
             {
                 uint clusterID = input.instanceID;
+                // uint clusterID = UniqueClusters[input.instanceID];
 
                 Varyings vsOutput = (Varyings)0;
 

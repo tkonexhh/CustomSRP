@@ -1,5 +1,6 @@
 #pragma once
 
+float4x4 _InverseProjectionMatrix;
 
 //Cluster Data
 uint3 ClusterCB_GridDim;      // The 3D dimensions of the cluster grid.
@@ -68,6 +69,55 @@ uint3 ComputeClusterIndex3D(float2 screenPos, float viewZ)
     uint k = log(viewZ / ClusterCB_ViewNear) * ClusterCB_LogGridDimY;
 
     return uint3(i, j, k);
+}
+
+
+/**
+* Find the intersection of a line segment with a plane.
+* This function will return true if an intersection point
+* was found or false if no intersection could be found.
+* Source: Real-time collision detection, Christer Ericson (2005)
+*/
+bool IntersectLinePlane(float3 a, float3 b, Plane p, out float3 q)
+{
+    float3 ab = b - a;
+
+    float t = (p.d - dot(p.N, a)) / dot(p.N, ab);
+
+    bool intersect = (t >= 0.0f && t <= 1.0f);
+
+    q = float3(0, 0, 0);
+    if (intersect)
+    {
+        q = a + t * ab;
+    }
+
+    return intersect;
+}
+
+/// Functions.hlsli
+// Convert clip space coordinates to view space
+float4 ClipToView(float4 clip)
+{
+    // View space position.
+    //float4 view = mul(clip, g_Com.Camera.CameraProjectInv);
+    float4 view = mul(_InverseProjectionMatrix, clip);
+    // Perspecitive projection.
+    view = view / view.w;
+
+    return view;
+}
+
+// Convert screen space coordinates to view space.
+float4 ScreenToView(float4 screen)
+{
+    // Convert to normalized texture coordinates in the range [0 .. 1].
+    float2 texCoord = screen.xy * ClusterCB_ScreenDimensions.zw;
+
+    // Convert to clip space
+    float4 clip = float4(texCoord * 2.0f - 1.0f, screen.z, screen.w);
+
+    return ClipToView(clip);
 }
 
 

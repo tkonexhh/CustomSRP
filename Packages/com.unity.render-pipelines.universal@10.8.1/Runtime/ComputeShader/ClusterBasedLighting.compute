@@ -1,68 +1,14 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ClusterAABB
 #pragma kernel ClusterSampleDepth
+#pragma kernel FindUniqueCluster
+#pragma kernel UpdateIndirectArgument
 #pragma kernel AssignLightsToClusters
-#pragma kernel AppendLightBuffer
 
 #include "./ClusterBasedLightingCommon.hlsl"
 
-float4x4 _InverseProjectionMatrix;
 
 RWStructuredBuffer<AABB> RWClusterAABBs;
-
-
-
-/**
-* Find the intersection of a line segment with a plane.
-* This function will return true if an intersection point
-* was found or false if no intersection could be found.
-* Source: Real-time collision detection, Christer Ericson (2005)
-*/
-bool IntersectLinePlane(float3 a, float3 b, Plane p, out float3 q)
-{
-    float3 ab = b - a;
-
-    float t = (p.d - dot(p.N, a)) / dot(p.N, ab);
-
-    bool intersect = (t >= 0.0f && t <= 1.0f);
-
-    q = float3(0, 0, 0);
-    if (intersect)
-    {
-        q = a + t * ab;
-    }
-
-    return intersect;
-}
-
-/// Functions.hlsli
-// Convert clip space coordinates to view space
-float4 ClipToView(float4 clip)
-{
-    // View space position.
-    //float4 view = mul(clip, g_Com.Camera.CameraProjectInv);
-    float4 view = mul(_InverseProjectionMatrix, clip);
-    // Perspecitive projection.
-    view = view / view.w;
-
-    return view;
-}
-
-// Convert screen space coordinates to view space.
-float4 ScreenToView(float4 screen)
-{
-    // Convert to normalized texture coordinates in the range [0 .. 1].
-    float2 texCoord = screen.xy * ClusterCB_ScreenDimensions.zw;
-
-    // Convert to clip space
-    float4 clip = float4(texCoord * 2.0f - 1.0f, screen.z, screen.w);
-
-    return ClipToView(clip);
-}
-
-
-
-
 
 [numthreads(1024, 1, 1)]
 void ClusterAABB(uint3 id: SV_DispatchThreadID)
@@ -112,6 +58,67 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
     RWClusterAABBs[clusterIndex1D] = aabb;
 }
 
+//////////////////////////////////////////
+
+Texture2D DepthTexture;
+RWStructuredBuffer<float> RWClusterFlags;
+
+[numthreads(32, 32, 1)]
+void ClusterSampleDepth(uint3 id: SV_DispatchThreadID)
+{
+    int2 texCoord = id.xy;
+    //取出当前深度图深度
+    float fDepth = DepthTexture.Load(uint3(texCoord, 0)).x;
+
+    if (fDepth > 0)
+    {
+        float4 viewPos = ScreenToView(float4(texCoord, fDepth, 1));
+        viewPos.z *= -1;
+        
+        // Compute the 3D cluster index.
+        uint3 clusterIndex3D = ComputeClusterIndex3D(texCoord, viewPos.z);
+        // Convert to 1D cluster index.
+        uint clusterIndex1D = ComputeClusterIndex1D(clusterIndex3D);
+
+        RWClusterFlags[clusterIndex1D] = 1.0;
+        return;
+    }
+}
+
+////////////////////////////////
+// A buffer that contains a set flag for clusters that contain samples.
+StructuredBuffer<float> ClusterFlags;
+// For each unique cluster, append the 1D cluster index.
+RWStructuredBuffer<uint> RWUniqueClusters;
+
+[numthreads(1024, 1, 1)]
+void FindUniqueCluster(uint3 id: SV_DispatchThreadID)
+{
+    uint clusterID = id.x;
+    if (ClusterFlags[clusterID] > 0.5)
+    {
+        uint i = RWUniqueClusters.IncrementCounter();
+        RWUniqueClusters[i] = clusterID;
+    }
+}
+
+///////////////////////////////////////////
+ByteAddressBuffer ClusterCounter;
+RWByteAddressBuffer AssignLightsToClustersIndirectArgumentBuffer;
+RWByteAddressBuffer DebugClustersIndirectArgumentBuffer;
+
+[numthreads(1, 1, 1)]
+void UpdateIndirectArgument(uint3 id: SV_DispatchThreadID)
+{
+    // Read the cluster counter.
+    uint clusterCount = ClusterCounter.Load(0);
+
+    // Update the indirect argument buffers.
+    AssignLightsToClustersIndirectArgumentBuffer.Store3(0, uint3(clusterCount, 1, 1)); // NumThreadGroupsX, NumThreadGroupsY, NumThreadGroupsZ
+
+    DebugClustersIndirectArgumentBuffer.Store4(0, uint4(clusterCount, 1, 0, 0)); // VertexCountPerInstance, InstanceCount, StartVertexLocation, StartInstanceLocation
+
+}
 
 ///////////////////////////////////////////
 
@@ -120,7 +127,7 @@ RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
 RWStructuredBuffer<uint2> RWPointLightGrid_Cluster;// : register(u4);
 RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
 
-// StructuredBuffer<uint> UniqueClusters;
+StructuredBuffer<uint> UniqueClusters;
 StructuredBuffer<AABB> ClusterAABBs;//第一步算好的全部Cluster信息
 StructuredBuffer<float4> PointLights;//全部点光源信息
 
@@ -156,7 +163,8 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     {
         gs_PointLightCount = 0;//总光源数量置为0
         //一维坐标
-        gs_ClusterIndex1D = IN.GroupID.x;// UniqueClusters[IN.GroupID.x];
+        gs_ClusterIndex1D = IN.GroupID.x;
+        // gs_ClusterIndex1D = UniqueClusters[IN.GroupID.x];
         gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
     }
 
@@ -178,8 +186,6 @@ void AssignLightsToClusters(ComputeShaderInput IN)
 
 
         if (SphereInsideAABB(sphere, gs_ClusterAABB))
-        // if (true)//先必定相交
-
         {
             //向目标cluster添加pointlight 下标
             //gs_PointLightCount ++
@@ -216,14 +222,4 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     {
         RWPointLightIndexList_Cluster[gs_PointLightStartOffset +i] = gs_PointLightList[i];
     }
-}
-
-AppendStructuredBuffer<float4> AppendPointLights;
-
-//Debug
-[numthreads(1024, 1, 1)]
-void AppendLightBuffer(ComputeShaderInput IN)
-{
-    float4 pointPosRange = PointLights[IN.GroupID.x];
-    AppendPointLights.Append(pointPosRange);
 }

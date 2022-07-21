@@ -64,14 +64,12 @@ Shader "Hidden/RenderFeature/ShowBuffer"
                 if (_DepthMode == 1)
                 {
                     depth = GetSceneDepth(input.uv);
-                    return depth;// * _Args;
-
+                    return depth * _Args;
                 }
                 else
                 {
                     depth = SampleSceneDepth(input.uv);
-                    return Linear01Depth(depth, _ZBufferParams);// * _Args;
-
+                    return Linear01Depth(depth, _ZBufferParams) * _Args;
                 }
             }
             
