@@ -85,6 +85,12 @@ namespace UnityEngine.Rendering.Universal
             return new ComputeBuffer(count, GetStride<T>());
         }
 
+        public static ComputeBuffer CreateStructuredBuffer(int count, int stride)
+        {
+            return new ComputeBuffer(count, stride);
+        }
+
+
         public static void CreateStructuredBuffer<T>(ref ComputeBuffer buffer, T[] data)
         {
             CreateStructuredBuffer<T>(ref buffer, data.Length);

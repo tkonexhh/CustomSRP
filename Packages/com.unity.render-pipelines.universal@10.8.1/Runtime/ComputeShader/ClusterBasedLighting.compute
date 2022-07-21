@@ -1,7 +1,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ClusterAABB
 #pragma kernel AssignLightsToClusters
-
+#pragma kernel AppendLightBuffer
 
 #include "./ClusterBasedLightingCommon.hlsl"
 
@@ -113,54 +113,49 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
 
 
 ///////////////////////////////////////////
-#define NUM_THREADS 1024
+
 
 RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
 RWStructuredBuffer<uint2> RWPointLightGrid_Cluster;// : register(u4);
 RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
 
-StructuredBuffer<uint> UniqueClusters;
-StructuredBuffer<AABB> ClusterAABBs;// : register(t1);
-StructuredBuffer<float4> PointLights;// : register(t8);
+// StructuredBuffer<uint> UniqueClusters;
+StructuredBuffer<AABB> ClusterAABBs;//第一步算好的全部Cluster信息
+StructuredBuffer<float4> PointLights;//全部点光源信息
 
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
 
+#define NUM_THREADS 1024
 //groupshared 是一个cluster共有了 在AssignLightsToClusters 一次执行过程中共有
 groupshared uint gs_ClusterIndex1D;
 groupshared AABB gs_ClusterAABB;
 
-groupshared uint gs_PointLightCount;
-groupshared uint gs_PointLightStartOffset;
-groupshared uint gs_PointLightList[1024];//每个Cluster 可以存放1024个点光源
+groupshared uint gs_PointLightCount;//此Cluster的光源个数
+groupshared uint gs_PointLightStartOffset;//总点光源 list 中的起始位置位置
+groupshared uint gs_PointLightList[1024];//点光源总列表
 
 
 float4 TransformWorldToView(float4 posWorld)
 {
     float4 posView = mul(_CameraLastViewMatrix, posWorld);
-    posView.z *= -1;
+    // posView.z *= -1;
     return posView;
 }
 
-// #define AppendLight(lightIndex, counter, lightList) \
-//     InterlockedAdd(counter, 1, lightIndex); \
-//     if (lightIndex < 1024) \
-// {
-//     \
-//      lightList[lightIndex] = lightIndex; \
-// }
 
 
 [numthreads(NUM_THREADS, 1, 1)]
 void AssignLightsToClusters(ComputeShaderInput IN)
 {
-    uint i, index;
+    uint i;//当前光源下标
+    uint index;//当前的Cluster已经有的光源个数
     //此核心首次调用时候 初始化groupshared变量
     if (IN.GroupIndex == 0)
     {
-        gs_PointLightCount = 0;
-
-        gs_ClusterIndex1D = UniqueClusters[IN.GroupID.x];
+        gs_PointLightCount = 0;//总光源数量置为0
+        //一维坐标
+        gs_ClusterIndex1D = IN.GroupID.x;// UniqueClusters[IN.GroupID.x];
         gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
     }
 
@@ -173,20 +168,26 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     {
         float4 pointLight = PointLights[i];
         float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.xyz, 1)).xyz;
+        //灯光是世界坐标的 需要放在同一坐标系下
+        //AABB都是基于0矩阵的 非世界坐标
+        //
         Sphere sphere = {
             pointLightPositionVS, pointLight.w
         };
 
+
         if (SphereInsideAABB(sphere, gs_ClusterAABB))
+        // if (true)//先必定相交
+
         {
             //向目标cluster添加pointlight 下标
             //gs_PointLightCount ++
             //每个cluster存放的pointLightIndex 填充pointlist 的列表
             // AppendLight(i, gs_PointLightCount, gs_PointLightList);
-            InterlockedAdd(gs_PointLightCount, 1, i);
-            if (i < 1024)
+            InterlockedAdd(gs_PointLightCount, 1, index);
+            if (index < 1024)
             {
-                gs_PointLightList[i] = i;
+                gs_PointLightList[index] = i;
             }
         }
     }
@@ -214,4 +215,14 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     {
         RWPointLightIndexList_Cluster[gs_PointLightStartOffset +i] = gs_PointLightList[i];
     }
+}
+
+AppendStructuredBuffer<float4> AppendPointLights;
+
+//Debug
+[numthreads(1024, 1, 1)]
+void AppendLightBuffer(ComputeShaderInput IN)
+{
+    float4 pointPosRange = PointLights[IN.GroupID.x];
+    AppendPointLights.Append(pointPosRange);
 }

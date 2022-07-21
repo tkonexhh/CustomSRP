@@ -1,11 +1,12 @@
-Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
+Shader "Hidden/ClusterBasedLighting/DebugLightSphere"
 {
     Properties { }
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "Queue" = "Transparent" }
+        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
         LOD 100
-        Blend SrcAlpha OneMinusSrcAlpha
+        ZWrite On
+        ZTest Always
 
         Pass
         {
@@ -30,15 +31,9 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
                 half4 color: COLOR;
             };
 
-            struct AABB
-            {
-                float3 Min;
-                float3 Max;
-            };
+            StructuredBuffer<float4> LightPosRanges;// : register(t1);
 
-            StructuredBuffer<AABB> ClusterAABBs;// : register(t1);
-            StructuredBuffer<uint2> PointLightGrid_Cluster;
-            float4x4 _CameraWorldMatrix;
+
 
             Varyings main_VS(Attributes input)
             {
@@ -46,22 +41,15 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
 
                 Varyings vsOutput = (Varyings)0;
 
-                AABB aabb = ClusterAABBs[clusterID];
+                float4 pointLight = LightPosRanges[clusterID];
 
-                float3 center = (aabb.Max + aabb.Min) * 0.5;
-                float3 scale = (aabb.Max - center) / 0.5;
-                scale *= 0.2;
+                float3 center = pointLight.xyz;
+                float scale = pointLight.w * 2;
                 input.positionOS.xyz = input.positionOS.xyz * scale + center;
-                float4 positionWS = mul(_CameraWorldMatrix, input.positionOS);
-                float4 positionCS = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_V, positionWS));
+                float4 positionCS = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_V, input.positionOS));
                 vsOutput.positionCS = positionCS;
-                vsOutput.color = half4(1, 1, 1, 0.2);
+                vsOutput.color = half4(1, 0, 0, 1);
 
-                float fClusterLightCount = PointLightGrid_Cluster[clusterID].y;
-                if (fClusterLightCount > 0)
-                {
-                    vsOutput.color = half4(1, 0, 0, 0.2);
-                }
 
                 return vsOutput;
             }

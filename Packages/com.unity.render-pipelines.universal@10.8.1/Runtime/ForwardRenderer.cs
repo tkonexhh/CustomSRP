@@ -195,6 +195,7 @@ namespace UnityEngine.Rendering.Universal
             isCameraColorTargetValid = false;
             RenderPassInputSummary renderPassInputs = GetRenderPassInputs(ref renderingData);
 
+            //强制不使用自带的后处理 已经改用RenderFeature实现的新后处理系统
             bool postProcessEnabled = false;//cameraData.postProcessEnabled;
             // Should apply post-processing after rendering this camera?
             bool applyPostProcessing = postProcessEnabled;

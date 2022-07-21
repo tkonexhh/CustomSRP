@@ -5,7 +5,8 @@ using System.Runtime.InteropServices;
 
 namespace UnityEngine.Rendering.Universal
 {
-    //只有主相机才进行多光源操作
+    // 只有主相机才进行多光源操作
+    // 集成ScriptableRenderPass 是为了可视化Cluster
     public class ClusterBasedLights : ScriptableRenderPass
     {
         //当相机视锥发生改变时调用
@@ -32,19 +33,19 @@ namespace UnityEngine.Rendering.Universal
         }
 
         ProfilingSampler m_ProfilingSampler;
-        const int CLUSTER_GRID_BLOCK_SIZE = 32;//单个Block像素大小
+        const int CLUSTER_GRID_BLOCK_SIZE = 64;//单个Block像素大小
         const int MAX_NUM_POINT_LIGHT = 1024;
+        private int m_AVERAGE_OVERLAPPING_LIGHTS_PER_CLUSTER = 20;
 
         bool m_Init = false;
         CD_DIM m_DimData;
+
         ComputeBuffer m_ClusterAABBBuffer;//存放计算好的ClusterAABB
 
         ComputeBuffer m_PointLightPosRangeBuffer;//存放点光源参数
         ComputeBuffer m_ClusterPointLightIndexCounterBuffer;
-        ComputeBuffer m_ClusterPointLightGridBuffer;
-        ComputeBuffer m_ClusterPointLightIndexList;
-
-        ComputeBuffer m_AssignLightsToClusters;
+        ComputeBuffer m_ClusterPointLightGridBuffer;//XYZ个  Vector2Int  x 是1D 坐标 y 是灯光个数
+        ComputeBuffer m_ClusterPointLightIndexListBuffer;
 
         int m_KernelOfClusterAABB;
         int m_kernelAssignLightsToClusters;
@@ -56,7 +57,10 @@ namespace UnityEngine.Rendering.Universal
 
         //debug
         ComputeBuffer m_DrawDebugClusterBuffer;
+        ComputeBuffer m_LightDebugBuffer;
+        ComputeBuffer m_PointLightPosRangeAppendBuffer;
         Material m_ClusterDebugMaterial;
+        Material m_LightDebugMaterial;
         public static bool UpdateDebugPos = true;
 
 
@@ -77,8 +81,30 @@ namespace UnityEngine.Rendering.Universal
             m_ProfilingSampler = new ProfilingSampler("ClusterBasedLights");
             //TODO 这个只在编辑器下生效  需要改
             m_ClusterAABBCS = UniversalRenderPipeline.asset.clusterBasedLightingComputeShader;
+        }
 
-            m_PointLightPosRangeBuffer = ComputeHelper.CreateStructuredBuffer<Vector4>(MAX_NUM_POINT_LIGHT);
+
+        //准备灯光数据 最一开始调用
+        public void SetupLights(ScriptableRenderContext context, ref RenderingData renderingData)
+        {
+            m_PointLightPosRangeList.Clear();
+            // 检索出全部点光源
+            // renderingData.lightData.visibleLights
+            for (int i = 0; i < renderingData.lightData.visibleLights.Length; i++)
+            {
+                if (renderingData.lightData.visibleLights[i].lightType == LightType.Point)
+                {
+                    Vector3 pos = renderingData.lightData.visibleLights[i].light.transform.position;
+                    float range = renderingData.lightData.visibleLights[i].range;
+                    m_PointLightPosRangeList.Add(new Vector4(pos.x, pos.y, pos.z, range));
+                }
+            }
+
+            //Light Buffer
+            if (m_PointLightPosRangeBuffer == null)
+                m_PointLightPosRangeBuffer = ComputeHelper.CreateStructuredBuffer<Vector4>(MAX_NUM_POINT_LIGHT);
+
+            m_PointLightPosRangeBuffer.SetData(m_PointLightPosRangeList);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -94,6 +120,12 @@ namespace UnityEngine.Rendering.Universal
 
                     m_ClusterAABBBuffer = ComputeHelper.CreateStructuredBuffer<AABB>(m_DimData.clusterDimXYZ);
 
+
+                    m_ClusterPointLightIndexCounterBuffer = ComputeHelper.CreateStructuredBuffer<uint>(1);
+                    m_ClusterPointLightGridBuffer = ComputeHelper.CreateStructuredBuffer<Vector2Int>(m_DimData.clusterDimXYZ);
+                    // m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_DimData.clusterDimXYZ * m_AVERAGE_OVERLAPPING_LIGHTS_PER_CLUSTER);
+                    m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_DimData.clusterDimXYZ * MAX_NUM_POINT_LIGHT);
+
                     m_KernelOfClusterAABB = m_ClusterAABBCS.FindKernel("ClusterAABB");
                     m_kernelAssignLightsToClusters = m_ClusterAABBCS.FindKernel("AssignLightsToClusters");
 
@@ -103,38 +135,22 @@ namespace UnityEngine.Rendering.Universal
                     //m_kernelAssignLightsToClusters
                     m_ClusterAABBCS.SetBuffer(m_kernelAssignLightsToClusters, "PointLights", m_PointLightPosRangeBuffer);
 
-                    ComputeClusterAABB(camera, ref cmd);
+                    ComputeClusterAABB(ref cmd, ref renderingData);
 
                     InitDebug();
                     m_Init = true;
                 }
 
-
+                AssignLightsToClusts(ref cmd, ref renderingData.cameraData);
                 DebugCluster(ref cmd, ref renderingData.cameraData);
+
             }
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
 
-        public void SetupLights(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            // 检索出全部点光源
-            // renderingData.lightData.visibleLights
-            for (int i = 0; i < renderingData.lightData.visibleLights.Length; i++)
-            {
-                if (renderingData.lightData.visibleLights[i].lightType == LightType.Point)
-                {
-                    Vector3 pos = renderingData.lightData.visibleLights[i].light.transform.position;
-                    float range = renderingData.lightData.visibleLights[i].range;
-                    m_PointLightPosRangeList.Add(new Vector4(pos.x, pos.y, pos.z, range));
-                }
-            }
 
-            m_PointLightPosRangeBuffer.SetData(m_PointLightPosRangeList);
-            // Debug.LogError("Point light count:" + m_PointLightPosRadiusList.Count);
-            m_PointLightPosRangeList.Clear();
-        }
 
 
         void CalculateMDim(ref RenderingData renderingData)
@@ -144,6 +160,7 @@ namespace UnityEngine.Rendering.Universal
             float fieldOfViewY = camera.fieldOfView * Mathf.Deg2Rad * 0.5f;//Degree 2 Radiance:  Param.CameraInfo.Property.Perspective.fFovAngleY * 0.5f;
             float zNear = camera.nearClipPlane;// Param.CameraInfo.Property.Perspective.fMinVisibleDistance;
             float zFar = Mathf.Min(50, camera.farClipPlane);// 多光源只计算50米
+            // float zFar = camera.farClipPlane;
 
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
@@ -160,7 +177,7 @@ namespace UnityEngine.Rendering.Universal
 
             float logDepth = Mathf.Log(zFar / zNear);
             int clusterDimZ = Mathf.FloorToInt(logDepth * logDimY);
-
+            // Debug.LogError(logDepth + "---" + logDimY + "---" + clusterDimZ);
             m_DimData.zNear = zNear;
             m_DimData.zFar = zFar;
             m_DimData.sD = sD;
@@ -173,11 +190,14 @@ namespace UnityEngine.Rendering.Universal
             m_DimData.clusterDimXYZ = clusterDimX * clusterDimY * clusterDimZ;//总个数
         }
 
-        void UpdateClusterBuffer(ComputeShader cs)
+        void UpdateClusterBuffer(ComputeShader cs, ref RenderingData renderingData)
         {
+            int width = renderingData.cameraData.cameraTargetDescriptor.width;
+            int height = renderingData.cameraData.cameraTargetDescriptor.height;
+            //TODO GC 问题
             int[] gridDims = { m_DimData.clusterDimX, m_DimData.clusterDimY, m_DimData.clusterDimZ };
             int[] sizes = { CLUSTER_GRID_BLOCK_SIZE, CLUSTER_GRID_BLOCK_SIZE };
-            Vector4 screenDim = new Vector4((float)Screen.width, (float)Screen.height, 1.0f / Screen.width, 1.0f / Screen.height);
+            Vector4 screenDim = new Vector4((float)width, (float)height, 1.0f / width, 1.0f / height);
             float viewNear = m_DimData.zNear;
 
             cs.SetInts(ShaderIDs.ClusterCB_GridDim, gridDims);
@@ -188,16 +208,16 @@ namespace UnityEngine.Rendering.Universal
             cs.SetVector(ShaderIDs.ClusterCB_ScreenDimensions, screenDim);
         }
 
-        void ComputeClusterAABB(Camera camera, ref CommandBuffer commandBuffer)
+        void ComputeClusterAABB(ref CommandBuffer commandBuffer, ref RenderingData renderingData)
         {
             if (m_ClusterAABBCS == null)
                 return;
 
-            var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
+            var projectionMatrix = GL.GetGPUProjectionMatrix(renderingData.cameraData.camera.projectionMatrix, false);
             var projectionMatrixInvers = projectionMatrix.inverse;
             m_ClusterAABBCS.SetMatrix(ShaderIDs.InverseProjectionMatrix, projectionMatrixInvers);
 
-            UpdateClusterBuffer(m_ClusterAABBCS);
+            UpdateClusterBuffer(m_ClusterAABBCS, ref renderingData);
 
             int threadGroups = Mathf.CeilToInt(m_DimData.clusterDimXYZ / 1024.0f);
 
@@ -205,29 +225,51 @@ namespace UnityEngine.Rendering.Universal
             commandBuffer.DispatchCompute(m_ClusterAABBCS, m_KernelOfClusterAABB, threadGroups, 1, 1);
         }
 
-        void AssignLightsToClusts(ref CommandBuffer commandBuffer)
+        void AssignLightsToClusts(ref CommandBuffer commandBuffer, ref CameraData cameraData)
         {
+
+            //TODO GC 问题
+            //初始化数据
+            uint[] uCounter = { 0 };
+            commandBuffer.SetComputeBufferData(m_ClusterPointLightIndexCounterBuffer, uCounter);
+
+            Vector2Int[] vec2Girds = new Vector2Int[m_DimData.clusterDimXYZ];
+            for (int i = 0; i < m_DimData.clusterDimXYZ; i++)
+            {
+                vec2Girds[i] = new Vector2Int(0, 0);
+            }
+            commandBuffer.SetComputeBufferData(m_ClusterPointLightGridBuffer, vec2Girds);
+
+
             //Output
             commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, m_kernelAssignLightsToClusters, "RWPointLightIndexCounter_Cluster", m_ClusterPointLightIndexCounterBuffer);
             commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, m_kernelAssignLightsToClusters, "RWPointLightGrid_Cluster", m_ClusterPointLightGridBuffer);
-            commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, m_kernelAssignLightsToClusters, "RWPointLightIndexList_Cluster", m_ClusterPointLightIndexList);
+            commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, m_kernelAssignLightsToClusters, "RWPointLightIndexList_Cluster", m_ClusterPointLightIndexListBuffer);
 
 
             //Input
             commandBuffer.SetComputeIntParams(m_ClusterAABBCS, "PointLightCount", m_PointLightPosRangeList.Count);
+            commandBuffer.SetComputeMatrixParam(m_ClusterAABBCS, "_CameraLastViewMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
             commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, m_kernelAssignLightsToClusters, "PointLights", m_PointLightPosRangeBuffer);
-            //  commandBuffer.SetComputeBufferParam(kernel, "ClusterAABBs", cb_ClusterAABBs);
+            commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, m_kernelAssignLightsToClusters, "ClusterAABBs", m_ClusterAABBBuffer);
 
             //给定工作大小是从 GPU 直接读取的 直接运行CS
-            commandBuffer.DispatchCompute(m_ClusterAABBCS, m_kernelAssignLightsToClusters, m_AssignLightsToClusters, 0);
+            // commandBuffer.DispatchCompute(m_ClusterAABBCS, m_kernelAssignLightsToClusters, m_AssignLightsToClusters, 0);
+            commandBuffer.DispatchCompute(m_ClusterAABBCS, m_kernelAssignLightsToClusters, m_DimData.clusterDimXYZ, 1, 1);
         }
 
         private void InitDebug()
         {
-            m_ClusterDebugMaterial = new Material(Shader.Find("Hidden/ClusterBasedLighting"));
+            m_ClusterDebugMaterial = new Material(Shader.Find("Hidden/ClusterBasedLighting/DebugClusterAABB"));
             m_ClusterDebugMaterial.SetBuffer("ClusterAABBs", m_ClusterAABBBuffer);
+            m_ClusterDebugMaterial.SetBuffer("PointLightGrid_Cluster", m_ClusterPointLightGridBuffer);
+
+            m_LightDebugMaterial = new Material(Shader.Find("Hidden/ClusterBasedLighting/DebugLightSphere"));
+            m_LightDebugMaterial.SetBuffer("LightPosRanges", m_PointLightPosRangeBuffer);
 
             m_DrawDebugClusterBuffer = ComputeHelper.CreateArgsBuffer(CubeMesh, m_DimData.clusterDimXYZ);
+            m_LightDebugBuffer = ComputeHelper.CreateArgsBuffer(SphereMesh, MAX_NUM_POINT_LIGHT);
+            m_PointLightPosRangeAppendBuffer = ComputeHelper.CreateAppendBuffer<Vector4>(MAX_NUM_POINT_LIGHT);
         }
 
         void DebugCluster(ref CommandBuffer commandBuffer, ref CameraData cameraData)
@@ -236,8 +278,21 @@ namespace UnityEngine.Rendering.Universal
             {
                 m_ClusterDebugMaterial.SetMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix);
             }
+
             commandBuffer.DrawMeshInstancedIndirect(CubeMesh, 0, m_ClusterDebugMaterial, 0, m_DrawDebugClusterBuffer, 0);
+
+
+            //执行CS
+            int kernel = m_ClusterAABBCS.FindKernel("AppendLightBuffer");
+            commandBuffer.SetComputeBufferCounterValue(m_PointLightPosRangeAppendBuffer, 0);
+            commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, kernel, "AppendPointLights", m_PointLightPosRangeAppendBuffer);
+            commandBuffer.SetComputeBufferParam(m_ClusterAABBCS, kernel, "PointLights", m_PointLightPosRangeBuffer);
+            commandBuffer.DispatchCompute(m_ClusterAABBCS, kernel, 1, 1, 1);
+
+            commandBuffer.CopyCounterValue(m_PointLightPosRangeAppendBuffer, m_LightDebugBuffer, 0);
+            commandBuffer.DrawMeshInstancedIndirect(SphereMesh, 0, m_LightDebugMaterial, 0, m_LightDebugBuffer, 0);
         }
+
 
 
 
@@ -247,67 +302,21 @@ namespace UnityEngine.Rendering.Universal
             get
             {
                 if (m_CubeMesh == null)
-                {
-                    Vector3 Point = Vector3.zero;
-                    float length = 1, width = 1, heigth = 1;
-                    //vertices(顶点、必须):
-                    int vertices_count = 4 * 6;                                 //顶点数（每个面4个点，六个面）
-                    Vector3[] vertices = new Vector3[vertices_count];
-                    vertices[0] = new Vector3(Point.x - length / 2, Point.y - heigth / 2, Point.z - width / 2);                     //前面的左下角的点
-                    vertices[1] = new Vector3(Point.x - length / 2, Point.y + heigth / 2, Point.z - width / 2);                //前面的左上角的点
-                    vertices[2] = new Vector3(Point.x + length / 2, Point.y - heigth / 2, Point.z - width / 2);                 //前面的右下角的点
-                    vertices[3] = new Vector3(Point.x + length / 2, Point.y + heigth / 2, Point.z - width / 2);           //前面的右上角的点
-
-                    vertices[4] = new Vector3(Point.x + length / 2, Point.y - heigth / 2, Point.z + width / 2);           //后面的右下角的点
-                    vertices[5] = new Vector3(Point.x + length / 2, Point.y + heigth / 2, Point.z + width / 2);      //后面的右上角的点
-                    vertices[6] = new Vector3(Point.x - length / 2, Point.y - heigth / 2, Point.z + width / 2);                //后面的左下角的点
-                    vertices[7] = new Vector3(Point.x - length / 2, Point.y + heigth / 2, Point.z + width / 2);           //后面的左上角的点
-
-                    vertices[8] = vertices[6];                              //左
-                    vertices[9] = vertices[7];
-                    vertices[10] = vertices[0];
-                    vertices[11] = vertices[1];
-
-                    vertices[12] = vertices[2];                              //右
-                    vertices[13] = vertices[3];
-                    vertices[14] = vertices[4];
-                    vertices[15] = vertices[5];
-
-                    vertices[16] = vertices[1];                              //上
-                    vertices[17] = vertices[7];
-                    vertices[18] = vertices[3];
-                    vertices[19] = vertices[5];
-
-                    vertices[20] = vertices[2];                              //下
-                    vertices[21] = vertices[4];
-                    vertices[22] = vertices[0];
-                    vertices[23] = vertices[6];
-
-
-                    //triangles(索引三角形、必须):
-                    int SplitTriangle = 6 * 2;//分割三角形数量
-                    int triangles_cout = SplitTriangle * 3;                  //索引三角形的索引点个数
-                    int[] triangles = new int[triangles_cout];            //索引三角形数组
-                    for (int i = 0, vi = 0; i < triangles_cout; i += 6, vi += 4)
-                    {
-                        triangles[i] = vi;
-                        triangles[i + 1] = vi + 1;
-                        triangles[i + 2] = vi + 2;
-
-                        triangles[i + 3] = vi + 3;
-                        triangles[i + 4] = vi + 2;
-                        triangles[i + 5] = vi + 1;
-
-                    }
-                    //负载属性与mesh
-                    m_CubeMesh = new Mesh();
-                    m_CubeMesh.vertices = vertices;
-                    m_CubeMesh.triangles = triangles;
-                    m_CubeMesh.RecalculateBounds();
-                    m_CubeMesh.RecalculateNormals();
-                }
+                    m_CubeMesh = UniversalRenderPipeline.asset.m_EditorResourcesAsset.meshs.cubeMesh;
                 return m_CubeMesh;
+            }
+        }
 
+        private Mesh m_SphereMesh;
+        private Mesh SphereMesh
+        {
+            get
+            {
+                if (m_SphereMesh == null)
+                {
+                    m_SphereMesh = UniversalRenderPipeline.asset.m_EditorResourcesAsset.meshs.sphereMesh;
+                }
+                return m_SphereMesh;
             }
         }
     }

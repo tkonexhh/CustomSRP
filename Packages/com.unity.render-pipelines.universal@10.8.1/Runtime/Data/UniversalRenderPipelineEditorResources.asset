@@ -27,3 +27,6 @@ MonoBehaviour:
     terrainLit: {fileID: 2100000, guid: 594ea882c5a793440b60ff72d896021e, type: 2}
   computeShaders:
     clusterBasedLighting: {fileID: 7200000, guid: 1b9a09b32d8c5604fad88b5ecae25cdb, type: 3}
+  meshs:
+    cubeMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+    sphereMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
