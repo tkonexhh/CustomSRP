@@ -1,5 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ClusterAABB
+#pragma kernel ClusterSampleDepth
 #pragma kernel AssignLightsToClusters
 #pragma kernel AppendLightBuffer
 

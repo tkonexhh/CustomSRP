@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace UnityEngine.Rendering.Universal
 {
     // 只有主相机才进行多光源操作
-    // 集成ScriptableRenderPass 是为了可视化Cluster
+    // 集成ScriptableRenderPass 是为了可视化Cluster 
     public class ClusterBasedLights : ScriptableRenderPass
     {
         //当相机视锥发生改变时调用
@@ -39,15 +39,20 @@ namespace UnityEngine.Rendering.Universal
 
         bool m_Init = false;
         CD_DIM m_DimData;
-
+        //计算视锥AABB
         ComputeBuffer m_ClusterAABBBuffer;//存放计算好的ClusterAABB
 
+        //使用深度裁剪Cluster 
+        ComputeBuffer m_ClusterFlagBuffer;
+
+        //光源求交
         ComputeBuffer m_PointLightPosRangeBuffer;//存放点光源参数
         ComputeBuffer m_ClusterPointLightIndexCounterBuffer;
         ComputeBuffer m_ClusterPointLightGridBuffer;//XYZ个  Vector2Int  x 是1D 坐标 y 是灯光个数
         ComputeBuffer m_ClusterPointLightIndexListBuffer;
 
         int m_KernelOfClusterAABB;
+        int m_KernelOfClusterSampleDepth;
         int m_kernelAssignLightsToClusters;
 
         ComputeShader m_ClusterAABBCS;
@@ -73,6 +78,7 @@ namespace UnityEngine.Rendering.Universal
             internal static readonly int ClusterCB_Size = Shader.PropertyToID("ClusterCB_Size");
             internal static readonly int ClusterCB_NearK = Shader.PropertyToID("ClusterCB_NearK");
             internal static readonly int ClusterCB_LogGridDimY = Shader.PropertyToID("ClusterCB_LogGridDimY");
+            internal static readonly int DepthTexture = Shader.PropertyToID("DepthTexture");
             internal static readonly int RWClusterFlags = Shader.PropertyToID("RWClusterFlags");
         };
 
@@ -123,10 +129,14 @@ namespace UnityEngine.Rendering.Universal
 
                     m_ClusterPointLightIndexCounterBuffer = ComputeHelper.CreateStructuredBuffer<uint>(1);
                     m_ClusterPointLightGridBuffer = ComputeHelper.CreateStructuredBuffer<Vector2Int>(m_DimData.clusterDimXYZ);
-                    // m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_DimData.clusterDimXYZ * m_AVERAGE_OVERLAPPING_LIGHTS_PER_CLUSTER);
-                    m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_DimData.clusterDimXYZ * MAX_NUM_POINT_LIGHT);
+                    m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_DimData.clusterDimXYZ * m_AVERAGE_OVERLAPPING_LIGHTS_PER_CLUSTER);//预估一个格子里面不会超过20个灯光
+                    // m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_DimData.clusterDimXYZ * MAX_NUM_POINT_LIGHT);
+
+                    //
+                    m_ClusterFlagBuffer = ComputeHelper.CreateStructuredBuffer<float>(m_DimData.clusterDimXYZ);
 
                     m_KernelOfClusterAABB = m_ClusterAABBCS.FindKernel("ClusterAABB");
+                    m_KernelOfClusterSampleDepth = m_ClusterAABBCS.FindKernel("ClusterSampleDepth");
                     m_kernelAssignLightsToClusters = m_ClusterAABBCS.FindKernel("AssignLightsToClusters");
 
                     //m_KernelOfClusterAABB
@@ -149,8 +159,6 @@ namespace UnityEngine.Rendering.Universal
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
-
-
 
 
         void CalculateMDim(ref RenderingData renderingData)
@@ -208,6 +216,7 @@ namespace UnityEngine.Rendering.Universal
             cs.SetVector(ShaderIDs.ClusterCB_ScreenDimensions, screenDim);
         }
 
+        //预计算视锥体AABB
         void ComputeClusterAABB(ref CommandBuffer commandBuffer, ref RenderingData renderingData)
         {
             if (m_ClusterAABBCS == null)
@@ -225,9 +234,30 @@ namespace UnityEngine.Rendering.Universal
             commandBuffer.DispatchCompute(m_ClusterAABBCS, m_KernelOfClusterAABB, threadGroups, 1, 1);
         }
 
+        //使用深度裁剪Cluster
+        void ClusterSampleDepth(ref CommandBuffer commandBuffer, ref RenderingData renderingData)
+        {
+            //TODO GC
+            float[] flags = new float[m_DimData.clusterDimXYZ];
+            for (int i = 0; i < m_DimData.clusterDimXYZ; i++)
+            {
+                flags[i] = 0.0f;
+            }
+            m_ClusterFlagBuffer.SetData(flags);
+
+            UpdateClusterBuffer(m_ClusterAABBCS, ref renderingData);
+
+            var projectionMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
+            var projectionMatrixInvers = projectionMatrix.inverse;
+
+            // commandBuffer.SetComputeTextureParam(m_ClusterAABBCS, m_KernelOfClusterSampleDepth, ShaderIDs.DepthTexture,);
+
+
+        }
+
+        //光源求交
         void AssignLightsToClusts(ref CommandBuffer commandBuffer, ref CameraData cameraData)
         {
-
             //TODO GC 问题
             //初始化数据
             uint[] uCounter = { 0 };
