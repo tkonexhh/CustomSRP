@@ -8,6 +8,7 @@ public class ShaderDefine
     // Properties
     public static readonly int CAMERA_COLOR_TEXTURE = Shader.PropertyToID("_CameraColorTexture");
     public static readonly int CAMERA_DEPTH_TEXTURE = Shader.PropertyToID("_CameraDepthTexture");
+    public static readonly int CAMERA_DEPTH_NORMAL_TEXTURE = Shader.PropertyToID("_CameraDepthNormalsTexture");
 
     // Keywords
 

@@ -7,7 +7,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         internal RenderTextureDescriptor normalDescriptor { get; private set; }
         internal RenderTextureDescriptor depthDescriptor { get; private set; }
 
-        private RenderTargetHandle depthHandle { get; set; }
+        private RenderTargetIdentifier depthHandle { get; set; }
         private RenderTargetHandle normalHandle { get; set; }
         private ShaderTagId m_ShaderTagId = new ShaderTagId("DepthNormals");
         private FilteringSettings m_FilteringSettings;
@@ -28,7 +28,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// <summary>
         /// Configure the pass
         /// </summary>
-        public void Setup(RenderTextureDescriptor baseDescriptor, RenderTargetHandle depthHandle, RenderTargetHandle normalHandle)
+        public void Setup(RenderTextureDescriptor baseDescriptor, RenderTargetIdentifier depthHandle, RenderTargetHandle normalHandle)
         {
             this.depthHandle = depthHandle;
             baseDescriptor.width = baseDescriptor.width >> UniversalRenderPipeline.asset.DepthDownsampling;
@@ -49,11 +49,15 @@ namespace UnityEngine.Rendering.Universal.Internal
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             cmd.GetTemporaryRT(normalHandle.id, normalDescriptor, FilterMode.Point);
-            cmd.GetTemporaryRT(depthHandle.id, depthDescriptor, FilterMode.Point);
+            cmd.GetTemporaryRT(ShaderDefine.CAMERA_DEPTH_TEXTURE, depthDescriptor, FilterMode.Point);
+            // ConfigureTarget(
+            //     new RenderTargetIdentifier(normalHandle.Identifier(), 0, CubemapFace.Unknown, -1),
+            //     new RenderTargetIdentifier(depthHandle.Identifier(), 0, CubemapFace.Unknown, -1)
+            //     );
             ConfigureTarget(
                 new RenderTargetIdentifier(normalHandle.Identifier(), 0, CubemapFace.Unknown, -1),
-                new RenderTargetIdentifier(depthHandle.Identifier(), 0, CubemapFace.Unknown, -1)
-                );
+                depthHandle
+            );
             //原來是Color.Black 改为new Color(0, 0, 1, 0) 才能获得正确的天空盒深度
             ConfigureClear(ClearFlag.All, new Color(0, 0, 1, 0));
         }
@@ -91,12 +95,12 @@ namespace UnityEngine.Rendering.Universal.Internal
                 throw new ArgumentNullException("cmd");
             }
 
-            if (depthHandle != RenderTargetHandle.CameraTarget)
+            if (depthHandle != RenderTargetHandle.CameraTarget.Identifier())
             {
                 cmd.ReleaseTemporaryRT(normalHandle.id);
-                cmd.ReleaseTemporaryRT(depthHandle.id);
+                cmd.ReleaseTemporaryRT(ShaderDefine.CAMERA_DEPTH_TEXTURE);
                 normalHandle = RenderTargetHandle.CameraTarget;
-                depthHandle = RenderTargetHandle.CameraTarget;
+                depthHandle = RenderTargetHandle.CameraTarget.Identifier();
             }
         }
     }

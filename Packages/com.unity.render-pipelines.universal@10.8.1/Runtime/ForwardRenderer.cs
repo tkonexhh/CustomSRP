@@ -48,13 +48,16 @@ namespace UnityEngine.Rendering.Universal
 
         RenderTargetHandle m_CameraColorAttachment;
         RenderTargetHandle m_CameraDepthAttachment;
-        RenderTargetHandle m_DepthTexture;
+        // RenderTargetHandle m_DepthTexture;
         RenderTargetHandle m_DepthNormalsTexture;
         RenderTargetHandle m_TerrainColor;
         RenderTargetHandle m_OpaqueColor;
         RenderTargetHandle m_TransparentColor;
         RenderTargetHandle m_AfterPostProcessColor;
         RenderTargetHandle m_ColorGradingLut;
+
+        public static RenderTargetIdentifier depthIdentifier = new RenderTargetIdentifier(ShaderDefine.CAMERA_DEPTH_TEXTURE);
+        public static RenderTargetIdentifier depthNormalsIdentifier = new RenderTargetIdentifier(ShaderDefine.CAMERA_DEPTH_NORMAL_TEXTURE);
 
         ForwardLights m_ForwardLights;
         ClusterBasedLights m_ClusterBasedLights;
@@ -123,7 +126,7 @@ namespace UnityEngine.Rendering.Universal
             // Samples (MSAA) depend on camera and pipeline
             m_CameraColorAttachment.Init("_CameraColorTexture");
             m_CameraDepthAttachment.Init("_CameraDepthAttachment");
-            m_DepthTexture.Init("_CameraDepthTexture");
+            // m_DepthTexture.Init("_CameraDepthTexture");
             m_DepthNormalsTexture.Init("_CameraDepthNormalsTexture");
 
             m_TerrainColor.Init("_CameraTerrainColor");
@@ -296,12 +299,12 @@ namespace UnityEngine.Rendering.Universal
                 // if (renderPassInputs.requiresNormalsTexture)
                 if (cameraData.requiresDepthNormalsTexture)
                 {
-                    m_DepthNormalPrepass.Setup(cameraTargetDescriptor, m_DepthTexture, m_DepthNormalsTexture);
+                    m_DepthNormalPrepass.Setup(cameraTargetDescriptor, depthIdentifier, m_DepthNormalsTexture);
                     EnqueuePass(m_DepthNormalPrepass);
                 }
                 else
                 {
-                    m_DepthPrepass.Setup(cameraTargetDescriptor, m_DepthTexture);
+                    m_DepthPrepass.Setup(cameraTargetDescriptor, depthIdentifier);
                     EnqueuePass(m_DepthPrepass);
                 }
             }
@@ -357,7 +360,8 @@ namespace UnityEngine.Rendering.Universal
             // For Base Cameras: Set the depth texture to the far Z if we do not have a depth prepass or copy depth
             if (cameraData.renderType == CameraRenderType.Base && !requiresDepthPrepass)
             {
-                Shader.SetGlobalTexture(m_DepthTexture.id, SystemInfo.usesReversedZBuffer ? Texture2D.blackTexture : Texture2D.whiteTexture);
+                // Shader.SetGlobalTexture(m_DepthTexture.id, SystemInfo.usesReversedZBuffer ? Texture2D.blackTexture : Texture2D.whiteTexture);
+                Shader.SetGlobalTexture(ShaderDefine.CAMERA_DEPTH_TEXTURE, SystemInfo.usesReversedZBuffer ? Texture2D.blackTexture : Texture2D.whiteTexture);
             }
 
             if (copyColorPass)
@@ -470,7 +474,7 @@ namespace UnityEngine.Rendering.Universal
             {
                 // Scene view camera should always resolve target (not stacked)
                 Assertions.Assert.IsTrue(lastCameraInTheStack, "Editor camera must resolve target upon finish rendering.");
-                m_SceneViewDepthCopyPass.Setup(m_DepthTexture);
+                m_SceneViewDepthCopyPass.Setup(depthIdentifier);
                 EnqueuePass(m_SceneViewDepthCopyPass);
             }
 #endif
