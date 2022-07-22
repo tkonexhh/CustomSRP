@@ -115,7 +115,7 @@ void AssignLightsToClusters(ComputeShaderInput IN)
         //灯光是世界坐标的 需要放在同一坐标系下
         //AABB都是基于0矩阵的 非世界坐标
         Sphere sphere = {
-            pointLightPositionVS, pointLight.range * 2
+            pointLightPositionVS, pointLight.range
         };
 
         if (SphereInsideAABB(sphere, gs_ClusterAABB))
