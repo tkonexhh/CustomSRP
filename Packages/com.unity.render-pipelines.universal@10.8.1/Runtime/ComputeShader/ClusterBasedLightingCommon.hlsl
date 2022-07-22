@@ -29,6 +29,19 @@ struct Plane
 
 };
 
+struct PointLight
+{
+    float3 position;
+    float range;
+    float3 color;
+};
+
+struct LightIndex
+{
+    int start;
+    int count;
+};
+
 
 struct ComputeShaderInput
 {
@@ -54,21 +67,6 @@ uint3 ComputeClusterIndex3D(uint clusterIndex1D)
 uint ComputeClusterIndex1D(uint3 clusterIndex3D)
 {
     return clusterIndex3D.x + (ClusterCB_GridDim.x * (clusterIndex3D.y + ClusterCB_GridDim.y * clusterIndex3D.z));
-}
-
-
-/**
-* Compute the 3D cluster index from a 2D screen position and Z depth in view space.
-*/
-uint3 ComputeClusterIndex3D(float2 screenPos, float viewZ)
-{
-    uint i = screenPos.x / ClusterCB_Size.x;
-    uint j = screenPos.y / ClusterCB_Size.y;
-    // It is assumed that view space z is negative (right-handed coordinate system)
-    // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(viewZ / ClusterCB_ViewNear) * ClusterCB_LogGridDimY;
-
-    return uint3(i, j, k);
 }
 
 

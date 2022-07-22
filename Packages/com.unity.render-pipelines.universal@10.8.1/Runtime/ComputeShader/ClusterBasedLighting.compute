@@ -1,8 +1,5 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ClusterAABB
-#pragma kernel ClusterSampleDepth
-#pragma kernel FindUniqueCluster
-#pragma kernel UpdateIndirectArgument
 #pragma kernel AssignLightsToClusters
 
 #include "./ClusterBasedLightingCommon.hlsl"
@@ -58,82 +55,19 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
     RWClusterAABBs[clusterIndex1D] = aabb;
 }
 
-//////////////////////////////////////////
-
-Texture2D DepthTexture;
-RWStructuredBuffer<float> RWClusterFlags;
-
-[numthreads(32, 32, 1)]
-void ClusterSampleDepth(uint3 id: SV_DispatchThreadID)
-{
-    int2 texCoord = id.xy;
-    //取出当前深度图深度
-    float fDepth = DepthTexture.Load(uint3(texCoord, 0)).x;
-
-    if (fDepth > 0)
-    {
-        float4 viewPos = ScreenToView(float4(texCoord, fDepth, 1));
-        viewPos.z *= -1;
-        
-        // Compute the 3D cluster index.
-        uint3 clusterIndex3D = ComputeClusterIndex3D(texCoord, viewPos.z);
-        // Convert to 1D cluster index.
-        uint clusterIndex1D = ComputeClusterIndex1D(clusterIndex3D);
-
-        RWClusterFlags[clusterIndex1D] = 1.0;
-        return;
-    }
-}
-
-////////////////////////////////
-// A buffer that contains a set flag for clusters that contain samples.
-StructuredBuffer<float> ClusterFlags;
-// For each unique cluster, append the 1D cluster index.
-RWStructuredBuffer<uint> RWUniqueClusters;
-
-[numthreads(1024, 1, 1)]
-void FindUniqueCluster(uint3 id: SV_DispatchThreadID)
-{
-    uint clusterID = id.x;
-    if (ClusterFlags[clusterID] > 0.5)
-    {
-        uint i = RWUniqueClusters.IncrementCounter();
-        RWUniqueClusters[i] = clusterID;
-    }
-}
 
 ///////////////////////////////////////////
-ByteAddressBuffer ClusterCounter;
-RWByteAddressBuffer AssignLightsToClustersIndirectArgumentBuffer;
-RWByteAddressBuffer DebugClustersIndirectArgumentBuffer;
-
-[numthreads(1, 1, 1)]
-void UpdateIndirectArgument(uint3 id: SV_DispatchThreadID)
-{
-    // Read the cluster counter.
-    uint clusterCount = ClusterCounter.Load(0);
-
-    // Update the indirect argument buffers.
-    AssignLightsToClustersIndirectArgumentBuffer.Store3(0, uint3(clusterCount, 1, 1)); // NumThreadGroupsX, NumThreadGroupsY, NumThreadGroupsZ
-
-    DebugClustersIndirectArgumentBuffer.Store4(0, uint4(clusterCount, 1, 0, 0)); // VertexCountPerInstance, InstanceCount, StartVertexLocation, StartInstanceLocation
-
-}
-
-///////////////////////////////////////////
-
-
 RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
-RWStructuredBuffer<uint2> RWPointLightGrid_Cluster;// : register(u4);
+RWStructuredBuffer<LightIndex> RWLightAssignTable;// : register(u4);
 RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
 
-StructuredBuffer<uint> UniqueClusters;
 StructuredBuffer<AABB> ClusterAABBs;//第一步算好的全部Cluster信息
-StructuredBuffer<float4> PointLights;//全部点光源信息
+StructuredBuffer<PointLight> PointLights;//全部点光源信息
 
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
 
+//其实就是最大光源数量
 #define NUM_THREADS 1024
 //groupshared 是一个cluster共有了 在AssignLightsToClusters 一次执行过程中共有
 groupshared uint gs_ClusterIndex1D;
@@ -141,7 +75,7 @@ groupshared AABB gs_ClusterAABB;
 
 groupshared uint gs_PointLightCount;//此Cluster的光源个数
 groupshared uint gs_PointLightStartOffset;//总点光源 list 中的起始位置位置
-groupshared uint gs_PointLightList[1024];//点光源总列表
+groupshared uint gs_PointLightList[NUM_THREADS];//点光源总列表
 
 
 float4 TransformWorldToView(float4 posWorld)
@@ -152,7 +86,8 @@ float4 TransformWorldToView(float4 posWorld)
 }
 
 
-
+//光源求交
+//每个Cluster执行一次 遍历全部灯光
 [numthreads(NUM_THREADS, 1, 1)]
 void AssignLightsToClusters(ComputeShaderInput IN)
 {
@@ -161,10 +96,9 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     //此核心首次调用时候 初始化groupshared变量
     if (IN.GroupIndex == 0)
     {
-        gs_PointLightCount = 0;//总光源数量置为0
+        gs_PointLightCount = 0;//此Cluster总光源数量置为0
         //一维坐标
-        gs_ClusterIndex1D = IN.GroupID.x;
-        // gs_ClusterIndex1D = UniqueClusters[IN.GroupID.x];
+        gs_ClusterIndex1D = IN.GroupID.x;//执行XYZ次 那么这个可以作为1D坐标
         gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
     }
 
@@ -173,24 +107,22 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     GroupMemoryBarrierWithGroupSync();
 
     //计算当前 cluster  所受点光源影响的总个数 并填充光源index 列表
+    // for (i = 0; i < PointLightCount; i++)
     for (i = IN.GroupIndex; i < PointLightCount; i += NUM_THREADS)
     {
-        float4 pointLight = PointLights[i];
-        float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.xyz, 1)).xyz;
+        PointLight pointLight = PointLights[i];
+        float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.position, 1)).xyz;
         //灯光是世界坐标的 需要放在同一坐标系下
         //AABB都是基于0矩阵的 非世界坐标
-        //
         Sphere sphere = {
-            pointLightPositionVS, pointLight.w
+            pointLightPositionVS, pointLight.range * 2
         };
-
 
         if (SphereInsideAABB(sphere, gs_ClusterAABB))
         {
             //向目标cluster添加pointlight 下标
             //gs_PointLightCount ++
             //每个cluster存放的pointLightIndex 填充pointlist 的列表
-            // AppendLight(i, gs_PointLightCount, gs_PointLightList);
             InterlockedAdd(gs_PointLightCount, 1, index);
             if (index < 1024)
             {
@@ -210,7 +142,10 @@ void AssignLightsToClusters(ComputeShaderInput IN)
         //gs_PointLightCount 是本次计算的点光源数量
         InterlockedAdd(RWPointLightIndexCounter_Cluster[0], gs_PointLightCount, gs_PointLightStartOffset);
         // 存放的是起始坐标 以及总数量 这样就可以方便计算了
-        RWPointLightGrid_Cluster[gs_ClusterIndex1D] = uint2(gs_PointLightStartOffset, gs_PointLightCount);
+        LightIndex lightIndex;
+        lightIndex.start = gs_PointLightStartOffset;
+        lightIndex.count = gs_PointLightCount;
+        RWLightAssignTable[gs_ClusterIndex1D] = lightIndex;
     }
 
 

@@ -57,7 +57,6 @@ namespace UnityEngine.Rendering.Universal
         public sealed class MeshResources
         {
             public Mesh cubeMesh;
-            public Mesh sphereMesh;
         }
 
         public ShaderResources shaders;

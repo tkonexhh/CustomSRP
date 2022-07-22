@@ -16,6 +16,7 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Runtime/ComputeShader/ClusterBasedLightingCommon.hlsl"
 
             struct Attributes
             {
@@ -30,21 +31,15 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
                 half4 color: COLOR;
             };
 
-            struct AABB
-            {
-                float3 Min;
-                float3 Max;
-            };
+            
 
-            StructuredBuffer<AABB> ClusterAABBs;// : register(t1);
-            StructuredBuffer<uint2> PointLightGrid_Cluster;
-            StructuredBuffer<uint> UniqueClusters;
+            StructuredBuffer<AABB> ClusterAABBs;
+            StructuredBuffer<LightIndex> LightAssignTable;
             float4x4 _CameraWorldMatrix;
 
             Varyings main_VS(Attributes input)
             {
                 uint clusterID = input.instanceID;
-                // uint clusterID = UniqueClusters[input.instanceID];
 
                 Varyings vsOutput = (Varyings)0;
 
@@ -59,7 +54,7 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
                 vsOutput.positionCS = positionCS;
                 vsOutput.color = half4(1, 1, 1, 0.2);
 
-                float fClusterLightCount = PointLightGrid_Cluster[clusterID].y;
+                float fClusterLightCount = LightAssignTable[clusterID].count;
                 if (fClusterLightCount > 0)
                 {
                     vsOutput.color = half4(1, 0, 0, 0.2);
