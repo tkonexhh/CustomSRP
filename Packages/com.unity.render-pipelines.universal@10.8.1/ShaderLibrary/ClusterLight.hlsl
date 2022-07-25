@@ -4,7 +4,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Runtime/ComputeShader/ClusterBasedLightingCommon.hlsl"
 
-CBUFFER_START(UnityPerDraw)
+CBUFFER_START(UnityPerFrame)
 int _Cluster_GridCountX;
 int _Cluster_GridCountY;
 int _Cluster_GridCountZ;
@@ -18,7 +18,6 @@ float4x4 _CameraWorldMatrix;
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<LightIndex> _AssignTable;
 StructuredBuffer<uint> _LightAssignTable;//按照顺序摆放的LightIndex
-
 
 
 //3D坐标转1D坐标
@@ -36,7 +35,7 @@ uint3 ClusterIndex3D(float2 screenPos, float viewZ)
     uint j = screenPos.y / _Cluster_SizeY;
     // It is assumed that view space z is negative (right-handed coordinate system)
     // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY;
+    uint k = log(-viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY + 1;
 
     return uint3(i, j, k);
 }
@@ -50,11 +49,17 @@ uint ComputeClusterIndex1D(float2 screenPos, float viewZ)
 
 half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS)
 {
+    // uint clusterIndexZ = log(-positionCS.w / _Cluster_ViewNear) / _Cluster_LogGridDimY + 1;
+    // uint clusterIndexX = floor(positionCS.x / _Cluster_SizeX);
+    // uint clusterIndexY = _Cluster_GridCountY - 1 - floor(positionCS.y / _Cluster_SizeY);
+    // uint clusterIndex = clusterIndexX + (_Cluster_GridCountX * (clusterIndexY + _Cluster_GridCountY * clusterIndexZ));
+
+
     float4 positionSS = ComputeScreenPos(positionCS);
     uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
     uint startOffset = _AssignTable[clusterIndex1D].start;
     uint lightCount = _AssignTable[clusterIndex1D].count;
-    // return lightCount / 10.0;
+    // return lightCount / 255.0;
 
     half3 finalRGB = 0;
     for (uint i = 0; i < lightCount; ++i)

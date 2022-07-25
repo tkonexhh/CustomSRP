@@ -11,7 +11,7 @@ Shader "XHH/TestClusterColor"
 
 			Cull Back
 
-			ZWrite off
+			ZWrite On
 			HLSLPROGRAM
 
 			#pragma vertex vert

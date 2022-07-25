@@ -315,8 +315,11 @@ namespace UnityEngine.Rendering.Universal
                 EnqueuePass(m_ColorGradingLutPass);
             }
 
-
-            if (renderingData.lightData.supportClusterBasedLighting)
+            bool supportClusterBasedLighting = renderingData.lightData.supportClusterBasedLighting;
+            supportClusterBasedLighting &= !isPreviewCamera;
+            supportClusterBasedLighting &= cameraData.renderType == CameraRenderType.Base;
+            // Debug.LogError(camera.gameObject.name + "---" + supportClusterBasedLighting + "---" + isPreviewCamera + "---" + camera.cameraType);
+            if (supportClusterBasedLighting)
                 EnqueuePass(m_ClusterBasedLights);
 
 
