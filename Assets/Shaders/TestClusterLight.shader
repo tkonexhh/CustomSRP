@@ -7,7 +7,6 @@ Shader "XHH/TestClusterColor"
 
 		Pass
 		{
-			Tags { "LightMode" = "Refract" }
 
 			Cull Back
 

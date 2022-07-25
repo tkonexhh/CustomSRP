@@ -33,8 +33,8 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
     pMin = ScreenToView(pMin);
     pMax = ScreenToView(pMax);
 
-    pMin.z *= -1;
-    pMax.z *= -1;
+    // pMin.z *= -1;
+    // pMax.z *= -1;
 
     // Find the min and max points on the near and far planes.
     float3 nearMin, nearMax, farMin, farMax;
@@ -71,6 +71,7 @@ float4x4 _CameraLastViewMatrix;
 #define NUM_THREADS 1024
 //groupshared 是一个cluster共有了 在AssignLightsToClusters 一次执行过程中共有
 groupshared uint gs_ClusterIndex1D;
+groupshared uint3 gs_ClusterIndex3D;
 groupshared AABB gs_ClusterAABB;
 
 groupshared uint gs_PointLightCount;//此Cluster的光源个数
@@ -85,6 +86,15 @@ float4 TransformWorldToView(float4 posWorld)
     return posView;
 }
 
+void AppendLight(uint lightIndex)
+{
+    uint index; // Index into the visible lights array.
+    InterlockedAdd(gs_PointLightCount, 1, index);
+    if (index < 1024)
+    {
+        gs_PointLightList[index] = lightIndex;
+    }
+}
 
 //光源求交
 //每个Cluster执行一次 遍历全部灯光
@@ -92,13 +102,16 @@ float4 TransformWorldToView(float4 posWorld)
 void AssignLightsToClusters(ComputeShaderInput IN)
 {
     uint i;//当前光源下标
-    uint index;//当前的Cluster已经有的光源个数
     //此核心首次调用时候 初始化groupshared变量
     if (IN.GroupIndex == 0)
     {
         gs_PointLightCount = 0;//此Cluster总光源数量置为0
         //一维坐标
-        gs_ClusterIndex1D = IN.GroupID.x;//执行XYZ次 那么这个可以作为1D坐标
+        // gs_ClusterIndex1D = IN.GroupID.x;//执行XYZ次 那么这个可以作为1D坐标
+
+        gs_ClusterIndex3D = IN.GroupID;
+        gs_ClusterIndex1D = ComputeClusterIndex1D(gs_ClusterIndex3D);
+
         gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
     }
 
@@ -123,11 +136,7 @@ void AssignLightsToClusters(ComputeShaderInput IN)
             //向目标cluster添加pointlight 下标
             //gs_PointLightCount ++
             //每个cluster存放的pointLightIndex 填充pointlist 的列表
-            InterlockedAdd(gs_PointLightCount, 1, index);
-            if (index < 1024)
-            {
-                gs_PointLightList[index] = i;
-            }
+            AppendLight(i);
         }
     }
 

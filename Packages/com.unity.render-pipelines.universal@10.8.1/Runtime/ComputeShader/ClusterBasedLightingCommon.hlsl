@@ -120,30 +120,16 @@ float4 ScreenToView(float4 screen)
 }
 
 
-// Compute the square distance between a point p and an AABB b.
-// Source: Real-time collision detection, Christer Ericson (2005)
-float SqDistancePointAABB(float3 p, AABB b)
-{
-    float sqDistance = 0.0f;
-
-    for (int i = 0; i < 3; ++i)
-    {
-        float v = p[i];
-
-        if (v < b.Min[i]) sqDistance += pow(b.Min[i] - v, 2);
-        if (v > b.Max[i]) sqDistance += pow(v - b.Max[i], 2);
-    }
-
-    return sqDistance;
-}
-
 
 
 // 球和AABB是否相交
 // Source: Real-time collision detection, Christer Ericson (2005)
 bool SphereInsideAABB(Sphere sphere, AABB aabb)
 {
-    float sqDistance = SqDistancePointAABB(sphere.position, aabb);
-
-    return sqDistance <= sphere.range * sphere.range;
+    float3 center = (aabb.Max.xyz + aabb.Min.xyz) * 0.5f;
+    float3 extents = (aabb.Max.xyz - aabb.Min.xyz) * 0.5f;
+    
+    float3 vDelta = max(0, abs(center - sphere.position) - extents);
+    float fDistSq = dot(vDelta, vDelta);
+    return fDistSq <= sphere.range * sphere.range;
 }
