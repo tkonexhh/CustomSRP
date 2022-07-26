@@ -35,7 +35,7 @@ uint3 ClusterIndex3D(float2 screenPos, float viewZ)
     uint j = screenPos.y / _Cluster_SizeY;
     // It is assumed that view space z is negative (right-handed coordinate system)
     // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(-viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY;
+    uint k = log(viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY;
 
     return uint3(i, j, k);
 }
@@ -62,7 +62,7 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
     // uint clusterIndex = clusterIndexX + (_Cluster_GridCountX * (clusterIndexY + _Cluster_GridCountY * clusterIndexZ));
     float4 positionSS = ComputeScreenPos(positionCS);
     float4 viewPosz = mul(UNITY_MATRIX_V, positionWS);
-    uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, viewPosz.z);
+    uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
 
     // float4 positionSS = ComputeScreenPos(positionCS);
     // uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
@@ -107,7 +107,7 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
     //uint resInt = frac(res.z * 0.25f) * 4;
     float4 rc = col[lightCount % 5] * 0.021f;
     rc.a = 0;
-    return finalRGB + rc;
+    return finalRGB ;
 }
 
 #endif

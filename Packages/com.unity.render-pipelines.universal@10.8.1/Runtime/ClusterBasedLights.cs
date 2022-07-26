@@ -246,7 +246,7 @@ namespace UnityEngine.Rendering.Universal
             // The half-angle of the field of view in the Y-direction.
             float fieldOfViewY = camera.fieldOfView * Mathf.Deg2Rad * 0.5f;//Degree 2 Radiance:  Param.CameraInfo.Property.Perspective.fFovAngleY * 0.5f;
             float zNear = camera.nearClipPlane;// Param.CameraInfo.Property.Perspective.fMinVisibleDistance;
-            float zFar = Mathf.Min(50, camera.farClipPlane);// 多光源只计算50米
+            float zFar = Mathf.Min(200, camera.farClipPlane);// 多光源只计算50米
             // float zFar = camera.farClipPlane;
 
             int width = renderingData.cameraData.pixelWidth;
@@ -336,13 +336,13 @@ namespace UnityEngine.Rendering.Universal
             //Input
             commandBuffer.SetComputeIntParams(m_ComputeShader, "PointLightCount", m_PointLightPosRangeList.Count);
             if (UpdateDebugPos)
-                commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_CameraLastViewMatrix", cameraData.camera.worldToCameraMatrix);
+                commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_CameraLastViewMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
 
             commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_W2CMatrix", cameraData.GetViewMatrix().inverse);
 
-            Debug.LogError((cameraData.camera.worldToCameraMatrix * m_PointLightPosRangeList[0].Position));
-            Debug.LogError("相机矩阵" + cameraData.camera.transform.localToWorldMatrix);
-            Debug.LogError("V" + cameraData.camera.worldToCameraMatrix);
+            //Debug.LogError((cameraData.camera.worldToCameraMatrix * m_PointLightPosRangeList[0].Position));
+            //Debug.LogError("相机矩阵" + cameraData.camera.transform.localToWorldMatrix);
+            //Debug.LogError("V" + cameraData.camera.worldToCameraMatrix);
             // commandBuffer.DispatchCompute(m_ComputeShader, m_kernelAssignLightsToClusters, m_DimData.clusterDimXYZ, 1, 1);
             commandBuffer.DispatchCompute(m_ComputeShader, m_kernelAssignLightsToClusters, m_ClusterInfo.clusterDimX, m_ClusterInfo.clusterDimY, m_ClusterInfo.clusterDimZ);
         }
