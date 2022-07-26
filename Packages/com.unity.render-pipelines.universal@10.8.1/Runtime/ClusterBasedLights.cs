@@ -130,6 +130,8 @@ namespace UnityEngine.Rendering.Universal
 
             m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(numClusters * AVERAGE_LIGHTS_PER_CLUSTER);
             m_AssignTableBuffer = ComputeHelper.CreateStructuredBuffer<LightIndex>(numClusters);
+
+
         }
 
 
@@ -156,8 +158,6 @@ namespace UnityEngine.Rendering.Universal
                 m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<PointLight>(MAX_NUM_POINT_LIGHT);
 
             m_PointLightBuffer.SetData(m_PointLightPosRangeList);
-
-            InitDebug();
             // Debug.LogError(m_PointLightPosRangeList.Count);
         }
 
@@ -180,18 +180,14 @@ namespace UnityEngine.Rendering.Universal
 
                     ClusterGenerate(ref cmd, ref renderingData);
 
-
+                    InitDebug();
                     m_Init = true;
                 }
 
-
-
                 AssignLightsToClusts(ref cmd, ref renderingData.cameraData);
-                // DebugCluster(ref cmd, ref renderingData.cameraData);
+                DebugCluster(ref cmd, ref renderingData.cameraData);
 
                 SetShaderParameters(ref renderingData.cameraData);
-
-
             }
 
             context.ExecuteCommandBuffer(cmd);
@@ -226,7 +222,6 @@ namespace UnityEngine.Rendering.Universal
             m_ClusterInfo.zNear = zNear;
             m_ClusterInfo.zFar = zFar;
             m_ClusterInfo.ScreenDimensions = screenDimensions;
-            // m_ClusterInfo.fieldOfViewY = fieldOfViewY;
 
             m_ClusterInfo.blockSizeX = blockSizeX;
             m_ClusterInfo.blockSizeY = blockSizeY;
@@ -257,14 +252,10 @@ namespace UnityEngine.Rendering.Universal
 
             UpdateClusterBuffer(ref renderingData);
 
-            // int threadGroups = Mathf.CeilToInt(m_ClusterInfo.clusterDimXYZ / 1024.0f);
-            Matrix4x4 viewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
-            Matrix4x4 projMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
-            Matrix4x4 projMatrixInv = projMatrix.inverse;
-            Matrix4x4 vpMatrix = projMatrix * viewMatrix;
-            Matrix4x4 vpMatrixInv = vpMatrix.inverse;
+            var projectionMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
+            var projectionMatrixInvers = projectionMatrix.inverse;
 
-            commandBuffer.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projMatrixInv);
+            commandBuffer.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projectionMatrixInvers);
             commandBuffer.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBs", m_ClusterAABBBuffer);
             commandBuffer.DispatchCompute(m_ComputeShader, m_KernelOfClusterAABB, m_ClusterInfo.clusterDimZ, 1, 1);
         }
@@ -311,9 +302,6 @@ namespace UnityEngine.Rendering.Universal
 
 
 
-
-
-
         void SetShaderParameters(ref CameraData cameraData)
         {
             //设置全部参数 用于shading
@@ -326,7 +314,7 @@ namespace UnityEngine.Rendering.Universal
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_AssignTable, m_AssignTableBuffer);
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_PointLightBuffer, m_PointLightBuffer);
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_LightAssignTable, m_ClusterPointLightIndexListBuffer);
-            Shader.SetGlobalMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
+            Shader.SetGlobalMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix);
         }
 
 
