@@ -8,11 +8,9 @@ CBUFFER_START(UnityPerFrame)
 int _Cluster_GridCountX;
 int _Cluster_GridCountY;
 int _Cluster_GridCountZ;
-float _Cluster_ViewNear;
 int _Cluster_SizeX;
 int _Cluster_SizeY;
-float _Cluster_LogGridDimY;
-
+int _Cluster_SizeZ;
 CBUFFER_END
 float4x4 _CameraWorldMatrix;
 StructuredBuffer<PointLight> _PointLightBuffer;
@@ -35,7 +33,7 @@ uint3 ClusterIndex3D(float2 screenPos, float viewZ)
     uint j = screenPos.y / _Cluster_SizeY;
     // It is assumed that view space z is negative (right-handed coordinate system)
     // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(-viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY + 1;
+    uint k = viewZ / _Cluster_SizeZ;
 
     return uint3(i, j, k);
 }
@@ -49,17 +47,12 @@ uint ComputeClusterIndex1D(float2 screenPos, float viewZ)
 
 half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS)
 {
-    // uint clusterIndexZ = log(-positionCS.w / _Cluster_ViewNear) / _Cluster_LogGridDimY + 1;
-    // uint clusterIndexX = floor(positionCS.x / _Cluster_SizeX);
-    // uint clusterIndexY = _Cluster_GridCountY - 1 - floor(positionCS.y / _Cluster_SizeY);
-    // uint clusterIndex = clusterIndexX + (_Cluster_GridCountX * (clusterIndexY + _Cluster_GridCountY * clusterIndexZ));
-
-
     float4 positionSS = ComputeScreenPos(positionCS);
-    uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
+    float viewPosz = mul(_CameraWorldMatrix, positionWS).z;
+    uint clusterIndex1D = ComputeClusterIndex1D(positionSS.xy, positionCS.w);
     uint startOffset = _AssignTable[clusterIndex1D].start;
     uint lightCount = _AssignTable[clusterIndex1D].count;
-    // return lightCount / 255.0;
+    return lightCount / 20.0;
 
     half3 finalRGB = 0;
     for (uint i = 0; i < lightCount; ++i)
