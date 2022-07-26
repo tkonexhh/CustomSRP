@@ -104,9 +104,9 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     uint endIndex = startIndex;
 
     //计算当前 cluster  所受点光源影响的总个数 并填充光源index 列表
-    for (i = 0; i < PointLightCount; i++)
+    for (uint lid = 0; lid < PointLightCount; lid++)
     {
-        PointLight pointLight = PointLights[i];
+        PointLight pointLight = PointLights[lid];
         float3 pointLightPositionVS = TransformWorldToView(pointLight.position);
         //灯光是世界坐标的 需要放在同一坐标系下
         //AABB都是基于0矩阵的 非世界坐标
@@ -120,7 +120,7 @@ void AssignLightsToClusters(ComputeShaderInput IN)
             //gs_PointLightCount ++
             //每个cluster存放的pointLightIndex 填充pointlist 的列表
             // AppendLight(i);
-            RWPointLightIndexList_Cluster[endIndex++] = uint(i);
+            RWPointLightIndexList_Cluster[endIndex++] = uint(lid);
         }
     }
 
