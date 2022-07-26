@@ -35,7 +35,7 @@ Shader "XHH/TestClusterColor"
 			{
 				float4 positionOS: POSITION;
 				float2 uv: TEXCOORD0;
-
+				
 				float3 normalOS: NORMAL;
 			};
 
@@ -46,6 +46,7 @@ Shader "XHH/TestClusterColor"
 				float3 positionWS: TEXCOORD1;
 				float2 uv: TEXCOORD0;
 				float3 normalWS: NORMAL;
+				float4 vpos: TEXCOORD2;
 			};
 
 
@@ -57,6 +58,8 @@ Shader "XHH/TestClusterColor"
 				output.normalWS = TransformObjectToWorldNormal(input.normalOS);
 				output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
 				output.uv = input.uv;
+
+				output.vpos = mul(GetWorldToViewMatrix(), output.positionWS);
 				return output;
 			}
 

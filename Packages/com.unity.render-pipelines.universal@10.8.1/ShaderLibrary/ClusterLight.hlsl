@@ -35,7 +35,7 @@ uint3 ClusterIndex3D(float2 screenPos, float viewZ)
     uint j = screenPos.y / _Cluster_SizeY;
     // It is assumed that view space z is negative (right-handed coordinate system)
     // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(-viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY + 1;
+    uint k = log(-viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY;
 
     return uint3(i, j, k);
 }
@@ -47,19 +47,29 @@ uint ComputeClusterIndex1D(float2 screenPos, float viewZ)
     return clusterIndex1D;
 }
 
+uint3 ComputeClusterIndex3D(float2 screenPos, float viewZ)
+{
+    uint3 clusterIndex3D = ClusterIndex3D(screenPos, viewZ);
+    
+    return clusterIndex3D;
+}
+
 half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS)
 {
-    // uint clusterIndexZ = log(-positionCS.w / _Cluster_ViewNear) / _Cluster_LogGridDimY + 1;
+    //uint clusterIndexZ = log(-positionCS.w / _Cluster_ViewNear) / _Cluster_LogGridDimY + 1;
     // uint clusterIndexX = floor(positionCS.x / _Cluster_SizeX);
     // uint clusterIndexY = _Cluster_GridCountY - 1 - floor(positionCS.y / _Cluster_SizeY);
     // uint clusterIndex = clusterIndexX + (_Cluster_GridCountX * (clusterIndexY + _Cluster_GridCountY * clusterIndexZ));
-
-
     float4 positionSS = ComputeScreenPos(positionCS);
-    uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
+    float4 viewPosz = mul(UNITY_MATRIX_V, positionWS);
+    uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, viewPosz.z);
+
+    // float4 positionSS = ComputeScreenPos(positionCS);
+    // uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
     uint startOffset = _AssignTable[clusterIndex1D].start;
     uint lightCount = _AssignTable[clusterIndex1D].count;
-    // return lightCount / 255.0;
+    //return lightCount / 255.0;\
+    //lightCount = 0;
 
     half3 finalRGB = 0;
     for (uint i = 0; i < lightCount; ++i)
@@ -84,7 +94,20 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
         finalRGB += NdotL * pointLight.color * distanceFactor;
     }
 
-    return finalRGB;
+    float4 col[5] = {
+        float4(0, 0, 0, 1),
+        float4(0, 1, 0, 1),
+        float4(0, 0, 1, 1),
+        float4(1, 0, 0, 1),
+        float4(0.5f, 0.5f, 0.5f, 1)
+    };
+
+    //uint3 res = ComputeClusterIndex3D(positionCS.xy, positionCS.w);
+    
+    //uint resInt = frac(res.z * 0.25f) * 4;
+    float4 rc = col[lightCount % 5] * 0.021f;
+    rc.a = 0;
+    return finalRGB + rc;
 }
 
 #endif

@@ -33,8 +33,8 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
     pMin = ScreenToView(pMin);
     pMax = ScreenToView(pMax);
 
-    // pMin.z *= -1;
-    // pMax.z *= -1;
+    pMin.z *= -1;
+    pMax.z *= -1;
 
     // Find the min and max points on the near and far planes.
     float3 nearMin, nearMax, farMin, farMax;
@@ -66,6 +66,7 @@ StructuredBuffer<PointLight> PointLights;//全部点光源信息
 
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
+float4x4 _W2CMatrix;
 
 //其实就是最大光源数量
 #define NUM_THREADS 1024
@@ -81,7 +82,9 @@ groupshared uint gs_PointLightList[NUM_THREADS];//点光源总列表
 
 float4 TransformWorldToView(float4 posWorld)
 {
+    
     float4 posView = mul(_CameraLastViewMatrix, posWorld);
+    //float4 posView = mul(_W2CMatrix, posWorld);
     // posView.z *= -1;
     return posView;
 }
@@ -125,11 +128,15 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     {
         PointLight pointLight = PointLights[i];
         float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.position, 1)).xyz;
+        //pointLightPositionVS *= float3(1, 1, -1);
+        //pointLightPositionVS = pointLight.position;
         //灯光是世界坐标的 需要放在同一坐标系下
         //AABB都是基于0矩阵的 非世界坐标
         Sphere sphere = {
             pointLightPositionVS, pointLight.range
         };
+
+        //AppendLight(i);
 
         if (SphereInsideAABB(sphere, gs_ClusterAABB))
         {

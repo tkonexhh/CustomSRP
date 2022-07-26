@@ -113,7 +113,7 @@ float4 ScreenToView(float4 screen)
     float2 texCoord = screen.xy * ClusterCB_ScreenDimensions.zw;
 
     // Convert to clip space
-    // float4 clip = float4(texCoord * 2.0f - 1.0f, screen.z, screen.w);
+    //float4 clip = float4(texCoord * 2.0f - 1.0f, screen.z, screen.w);
     float4 clip = float4(float2(texCoord.x, 1.0f - texCoord.y) * 2.0f - 1.0f, screen.z, screen.w);
 
     return ClipToView(clip);
