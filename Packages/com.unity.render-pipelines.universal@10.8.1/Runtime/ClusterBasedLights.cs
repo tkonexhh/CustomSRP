@@ -12,7 +12,7 @@ namespace UnityEngine.Rendering.Universal
         //当相机视锥发生改变时调用
         struct ClusterInfo
         {
-            public float fieldOfViewY;
+            // public float fieldOfViewY;
             public float zNear;
             public float zFar;
 
@@ -72,6 +72,7 @@ namespace UnityEngine.Rendering.Universal
 
         //初始变量
         LightIndex[] m_Vec2Girds;
+        uint[] m_LightIndex;
 
         //debug
         ComputeBuffer m_DrawDebugClusterBuffer;
@@ -82,7 +83,6 @@ namespace UnityEngine.Rendering.Universal
         struct ShaderIDs
         {
             internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrix");
-            internal static readonly int ClusterCB_ViewNear = Shader.PropertyToID("ClusterCB_ViewNear");
             internal static readonly int ClusterCB_ScreenDimensions = Shader.PropertyToID("ClusterCB_ScreenDimensions");
             internal static readonly int ClusterCB_GridDim = Shader.PropertyToID("ClusterCB_GridDim");
             internal static readonly int ClusterCB_Size = Shader.PropertyToID("ClusterCB_Size");
@@ -120,6 +120,12 @@ namespace UnityEngine.Rendering.Universal
                 m_Vec2Girds[i] = lightIndex;
             }
 
+            m_LightIndex = new uint[numClusters * AVERAGE_LIGHTS_PER_CLUSTER];
+            for (int i = 0; i < m_LightIndex.Length; i++)
+            {
+                m_LightIndex[i] = 0;
+            }
+
             m_ClusterAABBBuffer = ComputeHelper.CreateStructuredBuffer<AABB>(numClusters);
 
             m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(numClusters * AVERAGE_LIGHTS_PER_CLUSTER);
@@ -150,6 +156,8 @@ namespace UnityEngine.Rendering.Universal
                 m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<PointLight>(MAX_NUM_POINT_LIGHT);
 
             m_PointLightBuffer.SetData(m_PointLightPosRangeList);
+
+            InitDebug();
             // Debug.LogError(m_PointLightPosRangeList.Count);
         }
 
@@ -167,20 +175,19 @@ namespace UnityEngine.Rendering.Universal
 
                 if (!m_Init)
                 {
-                    // m_CurrentCamera = camera;
                     //当FOV clipplane 发生变化 就需要重新计算
                     CalculateClusterInfo(ref renderingData);
 
                     ClusterGenerate(ref cmd, ref renderingData);
 
-                    InitDebug();
+
                     m_Init = true;
                 }
 
 
 
                 AssignLightsToClusts(ref cmd, ref renderingData.cameraData);
-                DebugCluster(ref cmd, ref renderingData.cameraData);
+                // DebugCluster(ref cmd, ref renderingData.cameraData);
 
                 SetShaderParameters(ref renderingData.cameraData);
 
@@ -198,9 +205,9 @@ namespace UnityEngine.Rendering.Universal
             var camera = cameraData.camera;
 
             // The half-angle of the field of view in the Y-direction.
-            float fieldOfViewY = camera.fieldOfView * Mathf.Deg2Rad * 0.5f;//Degree 2 Radiance:  Param.CameraInfo.Property.Perspective.fFovAngleY * 0.5f;
+            // float fieldOfViewY = camera.fieldOfView * Mathf.Deg2Rad * 0.5f;//Degree 2 Radiance:  Param.CameraInfo.Property.Perspective.fFovAngleY * 0.5f;
             float zNear = camera.nearClipPlane;// Param.CameraInfo.Property.Perspective.fMinVisibleDistance;
-            float zFar = Mathf.Min(50, camera.farClipPlane);// 多光源只计算50米
+            float zFar = Mathf.Min(100, camera.farClipPlane);// 多光源只计算50米
             // float zFar = camera.farClipPlane;
 
             int width = renderingData.cameraData.pixelWidth;
@@ -214,12 +221,12 @@ namespace UnityEngine.Rendering.Universal
 
             float blockSizeX = (float)width / clusterDimX;
             float blockSizeY = (float)height / clusterDimY;
-            float blockSizeZ = (zFar - zNear) / clusterDimZ;
+            float blockSizeZ = (zFar) / clusterDimZ;
 
             m_ClusterInfo.zNear = zNear;
             m_ClusterInfo.zFar = zFar;
             m_ClusterInfo.ScreenDimensions = screenDimensions;
-            m_ClusterInfo.fieldOfViewY = fieldOfViewY;
+            // m_ClusterInfo.fieldOfViewY = fieldOfViewY;
 
             m_ClusterInfo.blockSizeX = blockSizeX;
             m_ClusterInfo.blockSizeY = blockSizeY;
@@ -253,12 +260,13 @@ namespace UnityEngine.Rendering.Universal
             // int threadGroups = Mathf.CeilToInt(m_ClusterInfo.clusterDimXYZ / 1024.0f);
             Matrix4x4 viewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
             Matrix4x4 projMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
+            Matrix4x4 projMatrixInv = projMatrix.inverse;
             Matrix4x4 vpMatrix = projMatrix * viewMatrix;
             Matrix4x4 vpMatrixInv = vpMatrix.inverse;
 
-            commandBuffer.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projMatrix.inverse);
+            commandBuffer.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projMatrixInv);
             commandBuffer.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBs", m_ClusterAABBBuffer);
-            commandBuffer.DispatchCompute(m_ComputeShader, m_KernelOfClusterAABB, NUM_CLUSTER_Z, 1, 1);
+            commandBuffer.DispatchCompute(m_ComputeShader, m_KernelOfClusterAABB, m_ClusterInfo.clusterDimZ, 1, 1);
         }
 
         //光源求交
@@ -273,6 +281,8 @@ namespace UnityEngine.Rendering.Universal
 
             //初始化数据
             commandBuffer.SetComputeBufferData(m_AssignTableBuffer, m_Vec2Girds);
+            commandBuffer.SetComputeBufferData(m_ClusterPointLightIndexListBuffer, m_LightIndex);
+
 
             //Input
             commandBuffer.SetComputeIntParams(m_ComputeShader, "PointLightCount", m_PointLightPosRangeList.Count);
@@ -316,7 +326,7 @@ namespace UnityEngine.Rendering.Universal
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_AssignTable, m_AssignTableBuffer);
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_PointLightBuffer, m_PointLightBuffer);
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_LightAssignTable, m_ClusterPointLightIndexListBuffer);
-            Shader.SetGlobalMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix);
+            Shader.SetGlobalMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
         }
 
 
