@@ -4,37 +4,24 @@
 
 #include "./ClusterBasedLightingCommon.hlsl"
 
-#define ClusterNumX 16
-#define ClusterNumY 16
 
 RWStructuredBuffer<AABB> RWClusterAABBs;
 
-
-float3 MatTransformProj(float4x4 mat, float3 v3)
+[numthreads(1024, 1, 1)]
+void ClusterAABB(uint3 id: SV_DispatchThreadID)
 {
-    float4 v4 = float4(v3, 1.0);
-    v4 = mul(mat, v4);
-    v4 /= v4.w;
-    return v4.xyz;
-}
+    
+    uint clusterIndex1D = id.x;
 
-//这里16 和ClusterBasedLights 的ClusterNum保持一致
-[numthreads(ClusterNumX, ClusterNumY, 1)]
-void ClusterAABB(ComputeShaderInput IN)
-{
-    uint i = IN.GroupThreadID.x;
-    uint j = IN.GroupThreadID.y;
-    uint k = IN.GroupID.x;
-    uint3 clusterIndex3D = uint3(i, j, k);
     //将1D转化为3D
-    uint clusterIndex1D = ComputeClusterIndex1D(clusterIndex3D);
+    uint3 clusterIndex3D = ComputeClusterIndex3D(clusterIndex1D);
 
     // Compute the near and far planes for cluster K.
     Plane nearPlane = {
-        0.0f, 0.0f, 1.0f, k * ClusterCB_Size.z
+        0.0f, 0.0f, 1.0f, ClusterCB_ViewNear * pow(abs(ClusterCB_NearK), clusterIndex3D.z)
     };
     Plane farPlane = {
-        0.0f, 0.0f, 1.0f, (k + 1) * ClusterCB_Size.z
+        0.0f, 0.0f, 1.0f, ClusterCB_ViewNear * pow(abs(ClusterCB_NearK), clusterIndex3D.z + 1)
     };
 
     // The top-left point of cluster K in screen space.
@@ -70,7 +57,7 @@ void ClusterAABB(ComputeShaderInput IN)
 
 
 ///////////////////////////////////////////
-
+RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
 RWStructuredBuffer<LightIndex> RWLightAssignTable;// : register(u4);
 RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
 
@@ -79,53 +66,111 @@ StructuredBuffer<PointLight> PointLights;//全部点光源信息
 
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
+float4x4 _W2CMatrix;
+
+//其实就是最大光源数量
+#define NUM_THREADS 1024
+//groupshared 是一个cluster共有了 在AssignLightsToClusters 一次执行过程中共有
+groupshared uint gs_ClusterIndex1D;
+groupshared uint3 gs_ClusterIndex3D;
+groupshared AABB gs_ClusterAABB;
+
+groupshared uint gs_PointLightCount;//此Cluster的光源个数
+groupshared uint gs_PointLightStartOffset;//总点光源 list 中的起始位置位置
+groupshared uint gs_PointLightList[NUM_THREADS];//点光源总列表
 
 
-float3 TransformWorldToView(float3 posWorld)
+float4 TransformWorldToView(float4 posWorld)
 {
-    float3 posView = mul(_CameraLastViewMatrix, float4(posWorld, 1.0f)).xyz;
+    
+    float4 posView = mul(_CameraLastViewMatrix, posWorld);
+    //float4 posView = mul(_W2CMatrix, posWorld);
+    // posView.z *= -1;
     return posView;
+}
+
+void AppendLight(uint lightIndex)
+{
+    uint index; // Index into the visible lights array.
+    InterlockedAdd(gs_PointLightCount, 1, index);
+    if (index < 1024)
+    {
+        gs_PointLightList[index] = lightIndex;
+    }
 }
 
 //光源求交
 //每个Cluster执行一次 遍历全部灯光
-[numthreads(ClusterNumX, ClusterNumY, 1)]
+[numthreads(NUM_THREADS, 1, 1)]
 void AssignLightsToClusters(ComputeShaderInput IN)
 {
-    uint i = IN.GroupThreadID.x;
-    uint j = IN.GroupThreadID.y;
-    uint k = IN.GroupID.x;
-    uint3 clusterIndex3D = uint3(i, j, k);
-    //将1D转化为3D
-    uint clusterIndex1D = ComputeClusterIndex1D(clusterIndex3D);
-    AABB aabb = ClusterAABBs[clusterIndex1D];
-    
-    uint startIndex = clusterIndex1D * 20;
-    uint endIndex = startIndex;
+    uint i;//当前光源下标
+    //此核心首次调用时候 初始化groupshared变量
+    if (IN.GroupIndex == 0)
+    {
+        gs_PointLightCount = 0;//此Cluster总光源数量置为0
+        //一维坐标
+        // gs_ClusterIndex1D = IN.GroupID.x;//执行XYZ次 那么这个可以作为1D坐标
+
+        gs_ClusterIndex3D = IN.GroupID;
+        gs_ClusterIndex1D = ComputeClusterIndex1D(gs_ClusterIndex3D);
+
+        gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
+    }
+
+    //阻塞进程
+    //等待对GroupShared变量的访问
+    GroupMemoryBarrierWithGroupSync();
 
     //计算当前 cluster  所受点光源影响的总个数 并填充光源index 列表
-    for (uint lid = 0; lid < PointLightCount; lid++)
+    // for (i = 0; i < PointLightCount; i++)
+    for (i = IN.GroupIndex; i < PointLightCount; i += NUM_THREADS)
     {
-        PointLight pointLight = PointLights[lid];
-        float3 pointLightPositionVS = TransformWorldToView(pointLight.position);
+        PointLight pointLight = PointLights[i];
+        float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.position, 1)).xyz;
+        //pointLightPositionVS *= float3(1, 1, -1);
+        //pointLightPositionVS = pointLight.position;
         //灯光是世界坐标的 需要放在同一坐标系下
         //AABB都是基于0矩阵的 非世界坐标
         Sphere sphere = {
             pointLightPositionVS, pointLight.range
         };
 
-        if (SphereInsideAABB(sphere, aabb))
+        //AppendLight(i);
+
+        if (SphereInsideAABB(sphere, gs_ClusterAABB))
         {
             //向目标cluster添加pointlight 下标
             //gs_PointLightCount ++
             //每个cluster存放的pointLightIndex 填充pointlist 的列表
-            // AppendLight(i);
-            RWPointLightIndexList_Cluster[endIndex++] = uint(lid);
+            AppendLight(i);
         }
     }
 
-    LightIndex lightIndex;
-    lightIndex.start = startIndex;
-    lightIndex.count = endIndex - startIndex;
-    RWLightAssignTable[clusterIndex1D] = lightIndex;
+    //阻塞进程
+    GroupMemoryBarrierWithGroupSync();
+
+    //使用gs_PointLightStartOffset，gs_PointLightCount，填充light grid
+    // Now update the global light grids with the light lists and light counts.
+    if (IN.GroupIndex == 0)
+    {
+        // Update light grid for point lights.
+        //gs_PointLightCount 是本次计算的点光源数量
+        InterlockedAdd(RWPointLightIndexCounter_Cluster[0], gs_PointLightCount, gs_PointLightStartOffset);
+        // 存放的是起始坐标 以及总数量 这样就可以方便计算了
+        LightIndex lightIndex;
+        lightIndex.start = gs_PointLightStartOffset;
+        lightIndex.count = gs_PointLightCount;
+        RWLightAssignTable[gs_ClusterIndex1D] = lightIndex;
+    }
+
+
+    GroupMemoryBarrierWithGroupSync();
+
+    //填充light 列表
+    // Now update the global light index lists with the group shared light lists.
+    for (i = IN.GroupIndex; i < gs_PointLightCount; i += NUM_THREADS)
+    {
+        RWPointLightIndexList_Cluster[gs_PointLightStartOffset +i] = gs_PointLightList[i];
+    }
 }

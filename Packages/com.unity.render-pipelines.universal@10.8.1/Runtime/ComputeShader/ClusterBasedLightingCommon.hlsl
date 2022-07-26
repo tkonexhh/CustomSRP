@@ -4,7 +4,10 @@ float4x4 _InverseProjectionMatrix;
 
 //Cluster Data
 uint3 ClusterCB_GridDim;      // The 3D dimensions of the cluster grid.
-float3 ClusterCB_Size;         // The size of a cluster in screen space (pixels).
+float ClusterCB_ViewNear;     // The distance to the near clipping plane. (Used for computing the index in the cluster grid)
+uint2 ClusterCB_Size;         // The size of a cluster in screen space (pixels).
+float ClusterCB_NearK;        // ( 1 + ( 2 * tan( fov * 0.5 ) / ClusterGridDim.y ) ) // Used to compute the near plane for clusters at depth k.
+float ClusterCB_LogGridDimY;  // 1.0f / log( 1 + ( tan( fov * 0.5 ) / ClusterGridDim.y )
 float4 ClusterCB_ScreenDimensions;
 
 struct AABB
@@ -110,8 +113,8 @@ float4 ScreenToView(float4 screen)
     float2 texCoord = screen.xy * ClusterCB_ScreenDimensions.zw;
 
     // Convert to clip space
-    float4 clip = float4(texCoord * 2.0f - 1.0f, screen.z, screen.w);
-    // float4 clip = float4(float2(texCoord.x, 1.0f - texCoord.y) * 2.0f - 1.0f, screen.z, screen.w);
+    //float4 clip = float4(texCoord * 2.0f - 1.0f, screen.z, screen.w);
+    float4 clip = float4(float2(texCoord.x, 1.0f - texCoord.y) * 2.0f - 1.0f, screen.z, screen.w);
 
     return ClipToView(clip);
 }
