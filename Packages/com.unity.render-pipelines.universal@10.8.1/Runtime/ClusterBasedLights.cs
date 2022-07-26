@@ -82,7 +82,6 @@ namespace UnityEngine.Rendering.Universal
         ComputeBuffer m_DrawDebugClusterBuffer;
         Material m_ClusterDebugMaterial;
         public static bool UpdateDebugPos = true;
-        Camera m_CurrentCamera;
 
 
         struct ShaderIDs
@@ -109,8 +108,9 @@ namespace UnityEngine.Rendering.Universal
             internal static readonly int Cluster_AssignTable = Shader.PropertyToID("_AssignTable");
         };
 
-        public ClusterBasedLights()
+        public ClusterBasedLights(RenderPassEvent evt)
         {
+            renderPassEvent = evt;
             m_ProfilingSampler = new ProfilingSampler("ClusterBasedLights");
             //TODO 这个只在编辑器下生效  需要改
             m_ComputeShader = UniversalRenderPipeline.asset.clusterBasedLightingComputeShader;
@@ -227,7 +227,7 @@ namespace UnityEngine.Rendering.Universal
 
                 AssignLightsToClusts(ref cmd, ref renderingData.cameraData);
 
-                DebugCluster(ref cmd, ref renderingData.cameraData);
+                // DebugCluster(ref cmd, ref renderingData.cameraData);
 
                 SetShaderParameters(ref renderingData.cameraData);
 
@@ -388,8 +388,67 @@ namespace UnityEngine.Rendering.Universal
             get
             {
                 if (m_CubeMesh == null)
-                    m_CubeMesh = UniversalRenderPipeline.asset.m_EditorResourcesAsset.meshs.cubeMesh;
+                {
+                    Vector3 Point = Vector3.zero;
+                    float length = 1, width = 1, heigth = 1;
+                    //vertices(顶点、必须):
+                    int vertices_count = 4 * 6;                                 //顶点数（每个面4个点，六个面）
+                    Vector3[] vertices = new Vector3[vertices_count];
+                    vertices[0] = new Vector3(Point.x - length / 2, Point.y - heigth / 2, Point.z - width / 2);                     //前面的左下角的点
+                    vertices[1] = new Vector3(Point.x - length / 2, Point.y + heigth / 2, Point.z - width / 2);                //前面的左上角的点
+                    vertices[2] = new Vector3(Point.x + length / 2, Point.y - heigth / 2, Point.z - width / 2);                 //前面的右下角的点
+                    vertices[3] = new Vector3(Point.x + length / 2, Point.y + heigth / 2, Point.z - width / 2);           //前面的右上角的点
+
+                    vertices[4] = new Vector3(Point.x + length / 2, Point.y - heigth / 2, Point.z + width / 2);           //后面的右下角的点
+                    vertices[5] = new Vector3(Point.x + length / 2, Point.y + heigth / 2, Point.z + width / 2);      //后面的右上角的点
+                    vertices[6] = new Vector3(Point.x - length / 2, Point.y - heigth / 2, Point.z + width / 2);                //后面的左下角的点
+                    vertices[7] = new Vector3(Point.x - length / 2, Point.y + heigth / 2, Point.z + width / 2);           //后面的左上角的点
+
+                    vertices[8] = vertices[6];                              //左
+                    vertices[9] = vertices[7];
+                    vertices[10] = vertices[0];
+                    vertices[11] = vertices[1];
+
+                    vertices[12] = vertices[2];                              //右
+                    vertices[13] = vertices[3];
+                    vertices[14] = vertices[4];
+                    vertices[15] = vertices[5];
+
+                    vertices[16] = vertices[1];                              //上
+                    vertices[17] = vertices[7];
+                    vertices[18] = vertices[3];
+                    vertices[19] = vertices[5];
+
+                    vertices[20] = vertices[2];                              //下
+                    vertices[21] = vertices[4];
+                    vertices[22] = vertices[0];
+                    vertices[23] = vertices[6];
+
+
+                    //triangles(索引三角形、必须):
+                    int SplitTriangle = 6 * 2;//分割三角形数量
+                    int triangles_cout = SplitTriangle * 3;                  //索引三角形的索引点个数
+                    int[] triangles = new int[triangles_cout];            //索引三角形数组
+                    for (int i = 0, vi = 0; i < triangles_cout; i += 6, vi += 4)
+                    {
+                        triangles[i] = vi;
+                        triangles[i + 1] = vi + 1;
+                        triangles[i + 2] = vi + 2;
+
+                        triangles[i + 3] = vi + 3;
+                        triangles[i + 4] = vi + 2;
+                        triangles[i + 5] = vi + 1;
+
+                    }
+                    //负载属性与mesh
+                    m_CubeMesh = new Mesh();
+                    m_CubeMesh.vertices = vertices;
+                    m_CubeMesh.triangles = triangles;
+                    m_CubeMesh.RecalculateBounds();
+                    m_CubeMesh.RecalculateNormals();
+                }
                 return m_CubeMesh;
+
             }
         }
     }

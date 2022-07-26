@@ -85,7 +85,7 @@ namespace UnityEngine.Rendering.Universal
             m_DefaultStencilState.SetZFailOperation(stencilData.zFailOperation);
 
             m_ForwardLights = new ForwardLights();
-            m_ClusterBasedLights = new ClusterBasedLights();
+            m_ClusterBasedLights = new ClusterBasedLights(RenderPassEvent.BeforeRenderingOpaques);
 
             m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
             m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);

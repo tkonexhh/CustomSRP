@@ -53,16 +53,10 @@ namespace UnityEngine.Rendering.Universal
             public ComputeShader clusterBasedLighting;
         }
 
-        [Serializable, ReloadGroup]
-        public sealed class MeshResources
-        {
-            public Mesh cubeMesh;
-        }
 
         public ShaderResources shaders;
         public MaterialResources materials;
         public ComputeShaderResources computeShaders;
-        public MeshResources meshs;
     }
 
 #if UNITY_EDITOR
