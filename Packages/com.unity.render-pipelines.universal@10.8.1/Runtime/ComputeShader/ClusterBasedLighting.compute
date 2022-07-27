@@ -66,7 +66,6 @@ StructuredBuffer<PointLight> PointLights;//全部点光源信息
 
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
-float4x4 _W2CMatrix;
 
 //其实就是最大光源数量
 #define NUM_THREADS 1024
@@ -84,7 +83,6 @@ float4 TransformWorldToView(float4 posWorld)
 {
     
     float4 posView = mul(_CameraLastViewMatrix, posWorld);
-    //float4 posView = mul(_W2CMatrix, posWorld);
     // posView.z *= -1;
     return posView;
 }
