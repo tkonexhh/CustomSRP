@@ -24,6 +24,7 @@ namespace UnityEngine.Rendering.Universal
 
         public float cluster_SizeX;
         public float cluster_SizeY;
+        public float cluster_SizeZ;
 
 
         public int clusterDimX;

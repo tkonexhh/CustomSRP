@@ -109,7 +109,7 @@ namespace UnityEngine.Rendering.Universal
 
         float GetZ0(int slice)
         {
-            return ClusterInfo.zNear * Mathf.Pow(Mathf.Abs(ClusterInfo.nearK), slice);
+            return slice * ClusterInfo.cluster_SizeZ;
         }
 
     }

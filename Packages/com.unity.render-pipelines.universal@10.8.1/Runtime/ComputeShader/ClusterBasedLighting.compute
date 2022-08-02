@@ -18,10 +18,10 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
 
     // Compute the near and far planes for cluster K.
     Plane nearPlane = {
-        0.0f, 0.0f, 1.0f, ClusterCB_ViewNear * pow(abs(ClusterCB_NearK), clusterIndex3D.z)
+        0.0f, 0.0f, 1.0f, clusterIndex3D.z * ClusterCB_Size.z
     };
     Plane farPlane = {
-        0.0f, 0.0f, 1.0f, ClusterCB_ViewNear * pow(abs(ClusterCB_NearK), clusterIndex3D.z + 1)
+        0.0f, 0.0f, 1.0f, (clusterIndex3D.z + 1) * ClusterCB_Size.z
     };
 
     // The top-left point of cluster K in screen space.

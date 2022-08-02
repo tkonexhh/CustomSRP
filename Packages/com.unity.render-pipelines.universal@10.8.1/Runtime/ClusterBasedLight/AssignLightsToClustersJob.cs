@@ -11,6 +11,7 @@ namespace UnityEngine.Rendering.Universal
     public struct AssignLightsToClustersJob : IJobParallelFor
     {
         //input
+        public ClusterInfo ClusterInfo;
         public int PointLightCount;
         public int MaxLightCountPerCluster;
         public Matrix4x4 CameraWorldMatrix;
@@ -19,8 +20,10 @@ namespace UnityEngine.Rendering.Universal
         [ReadOnly] public NativeArray<ClusterPointLight> PointLights;
 
         //output
+        [NativeDisableContainerSafetyRestriction]
         public NativeArray<LightIndex> LightAssignTable;
-        public NativeParallelMultiHashMap<int, uint> PointLightIndex;
+        [NativeDisableContainerSafetyRestriction]
+        public NativeArray<uint> PointLightIndex;
 
         public void Execute(int index)
         {
@@ -38,19 +41,42 @@ namespace UnityEngine.Rendering.Universal
 
                 if (SphereInsideAABB(sphere, clusterAABB))
                 {
-                    PointLightIndex.Add(clusterIndex1D, (uint)i);
+                    PointLightIndex[endIndex++] = (uint)i;
                 }
             }
 
             LightIndex lightIndex = new LightIndex();
             lightIndex.start = startIndex;
             lightIndex.count = endIndex - startIndex;
-            // Debug.LogError(clusterIndex1D + "==" + lightIndex.start + "==" + lightIndex.count);
+            // if (lightIndex.count > 0)
+            //     Debug.LogError(clusterIndex1D + "==" + ComputeClusterIndex3D(clusterIndex1D) + "==" + lightIndex.start + "==" + lightIndex.count);
             LightAssignTable[clusterIndex1D] = lightIndex;
+
+            // if (index == ClusterInfo.clusterDimXYZ - 1)
+            // {
+            //     for (int i = 0; i < 10; i++)
+            //     {
+            //         int start = i;
+            //         string output = "";
+            //         for (int j = 0; j < MaxLightCountPerCluster; j++)
+            //         {
+            //             output += "|" + PointLightIndex[i * MaxLightCountPerCluster + j];
+            //         }
+            //         output += "====" + LightAssignTable[i].count;
+            //         Debug.LogError(i + "---" + output);
+            //     }
+            // }
         }
 
 
+        Vector3Int ComputeClusterIndex3D(int clusterIndex1D)
+        {
+            int i = clusterIndex1D % ClusterInfo.clusterDimX;
+            int j = clusterIndex1D % (ClusterInfo.clusterDimX * ClusterInfo.clusterDimY) / ClusterInfo.clusterDimX;
+            int k = clusterIndex1D / (ClusterInfo.clusterDimX * ClusterInfo.clusterDimY);
 
+            return new Vector3Int(i, j, k);
+        }
 
         Vector3 TransformWorldToView(Vector3 posWorld)
         {
@@ -58,6 +84,8 @@ namespace UnityEngine.Rendering.Universal
             // posView.z *= -1;
             return posView;
         }
+
+
 
 
         // 球和AABB是否相交

@@ -11,6 +11,7 @@ int _Cluster_GridCountZ;
 float _Cluster_ViewNear;
 int _Cluster_SizeX;
 int _Cluster_SizeY;
+int _Cluster_SizeZ;
 float _Cluster_LogGridDimY;
 
 CBUFFER_END
@@ -35,8 +36,8 @@ uint3 ClusterIndex3D(float2 screenPos, float viewZ)
     uint j = screenPos.y / _Cluster_SizeY;
     // It is assumed that view space z is negative (right-handed coordinate system)
     // so the view-space z coordinate needs to be negated to make it positive.
-    uint k = log(viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY;
-
+    // uint k = log(viewZ / _Cluster_ViewNear) * _Cluster_LogGridDimY;
+    uint k = viewZ / _Cluster_SizeZ;
     return uint3(i, j, k);
 }
 

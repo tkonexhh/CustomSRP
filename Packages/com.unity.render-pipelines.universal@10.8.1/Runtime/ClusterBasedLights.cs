@@ -13,7 +13,8 @@ namespace UnityEngine.Rendering.Universal
 
 
         ProfilingSampler m_ProfilingSampler;
-        const int CLUSTER_GRID_BLOCK_SIZE = 64;//单个Block像素大小
+        const int CLUSTER_GRID_BLOCK_SIZE_XY = 64;//单个Block像素大小
+        const int CLUSTER_GRID_BLOCK_SIZE_Z = 5;//单个Block像素大小
         const int MAX_NUM_POINT_LIGHT = 1024;
         private int AVERAGE_LIGHTS_PER_CLUSTER = 10;
 
@@ -46,7 +47,7 @@ namespace UnityEngine.Rendering.Universal
         NativeArray<AABB> m_ClustersAABBs;
         NativeArray<ClusterPointLight> m_PointLightArray;
         NativeArray<LightIndex> m_LightAssignTable;
-        NativeParallelMultiHashMap<int, uint> m_PointLightIndex;
+        NativeArray<uint> m_PointLightIndex;
 
         GenerateClusterJob m_GenerateClusterJob;
         AssignLightsToClustersJob m_AssignLightsToClustersJob;
@@ -68,6 +69,7 @@ namespace UnityEngine.Rendering.Universal
             internal static readonly int Cluster_ViewNear = Shader.PropertyToID("_Cluster_ViewNear");
             internal static readonly int Cluster_SizeX = Shader.PropertyToID("_Cluster_SizeX");
             internal static readonly int Cluster_SizeY = Shader.PropertyToID("_Cluster_SizeY");
+            internal static readonly int Cluster_SizeZ = Shader.PropertyToID("_Cluster_SizeZ");
             internal static readonly int Cluster_NearK = Shader.PropertyToID("_Cluster_NearK");
             internal static readonly int Cluster_LogGridDimY = Shader.PropertyToID("_Cluster_LogGridDimY");
             internal static readonly int Cluster_LightAssignTable = Shader.PropertyToID("_LightAssignTable");
@@ -197,13 +199,13 @@ namespace UnityEngine.Rendering.Universal
 
                     ClusterGenerate(ref cmd, ref renderingData);
 
-                    // m_GenerateClusterJob.ClusterInfo = m_ClusterInfo;
-                    // m_ClustersAABBs = new NativeArray<AABB>(m_ClusterInfo.clusterDimXYZ, Allocator.TempJob);
-                    // m_GenerateClusterJob.ResultClusterAABB = m_ClustersAABBs;
-                    // m_GenerateClusterJob.Run(m_ClusterInfo.clusterDimXYZ);
+                    m_GenerateClusterJob.ClusterInfo = m_ClusterInfo;
+                    m_ClustersAABBs = new NativeArray<AABB>(m_ClusterInfo.clusterDimXYZ, Allocator.TempJob);
+                    m_GenerateClusterJob.ResultClusterAABB = m_ClustersAABBs;
+                    m_GenerateClusterJob.Run(m_ClusterInfo.clusterDimXYZ);
 
-                    // m_LightAssignTable = new NativeArray<LightIndex>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
-                    // m_PointLightIndex = new NativeParallelMultiHashMap<int, uint>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
+                    m_LightAssignTable = new NativeArray<LightIndex>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
+                    m_PointLightIndex = new NativeArray<uint>(m_ClusterInfo.clusterDimXYZ * AVERAGE_LIGHTS_PER_CLUSTER, Allocator.Persistent);
 
                     InitDebug();
                     m_Init = true;
@@ -214,14 +216,22 @@ namespace UnityEngine.Rendering.Universal
                 //cmd.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projectionMatrix);
                 cmd.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projectionMatrixInvers);
 
-                // m_AssignLightsToClustersJob.PointLights = m_PointLightArray;
-                // m_AssignLightsToClustersJob.MaxLightCountPerCluster = AVERAGE_LIGHTS_PER_CLUSTER;
-                // m_AssignLightsToClustersJob.PointLightCount = m_PointLightPosRangeList.Count;
-                // m_AssignLightsToClustersJob.InputClusterAABBs = m_ClustersAABBs;
-                // m_AssignLightsToClustersJob.CameraWorldMatrix = camera.transform.localToWorldMatrix.inverse;
-                // m_AssignLightsToClustersJob.LightAssignTable = m_LightAssignTable;
-                // m_AssignLightsToClustersJob.PointLightIndex = m_PointLightIndex;
+                m_AssignLightsToClustersJob.ClusterInfo = m_ClusterInfo;
+                m_AssignLightsToClustersJob.PointLights = m_PointLightArray;
+                m_AssignLightsToClustersJob.MaxLightCountPerCluster = AVERAGE_LIGHTS_PER_CLUSTER;
+                m_AssignLightsToClustersJob.PointLightCount = m_PointLightPosRangeList.Count;
+                m_AssignLightsToClustersJob.InputClusterAABBs = m_ClustersAABBs;
+                m_AssignLightsToClustersJob.CameraWorldMatrix = camera.transform.localToWorldMatrix.inverse;
+                m_AssignLightsToClustersJob.LightAssignTable = m_LightAssignTable;
+                m_AssignLightsToClustersJob.PointLightIndex = m_PointLightIndex;
                 // m_AssignLightsToClustersJob.Run(m_ClusterInfo.clusterDimXYZ);
+                if (m_PointLightPosRangeList.Count > 0)
+                {
+
+                    var jobHandle = m_AssignLightsToClustersJob.Schedule(m_ClusterInfo.clusterDimXYZ, 8);
+                    JobHandle.ScheduleBatchedJobs();
+                    jobHandle.Complete();
+                }
 
                 AssignLightsToClusts(ref cmd, ref renderingData.cameraData);
 
@@ -246,7 +256,7 @@ namespace UnityEngine.Rendering.Universal
             // The half-angle of the field of view in the Y-direction.
             float fieldOfViewY = camera.fieldOfView * Mathf.Deg2Rad * 0.5f;//Degree 2 Radiance:  Param.CameraInfo.Property.Perspective.fFovAngleY * 0.5f;
             float zNear = camera.nearClipPlane;// Param.CameraInfo.Property.Perspective.fMinVisibleDistance;
-            float zFar = Mathf.Min(50, camera.farClipPlane);// 多光源只计算50米
+            float zFar = Mathf.Min(100, camera.farClipPlane);// 多光源只计算50米
             // float zFar = camera.farClipPlane;
 
             int width = renderingData.cameraData.pixelWidth;
@@ -259,9 +269,10 @@ namespace UnityEngine.Rendering.Universal
                       );
             // Debug.LogError(width + "---" + height);
             // Number of clusters in the screen X direction.
-            int clusterDimX = Mathf.CeilToInt(width / (float)CLUSTER_GRID_BLOCK_SIZE);
+            int clusterDimX = Mathf.CeilToInt(width / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
             // Number of clusters in the screen Y direction.
-            int clusterDimY = Mathf.CeilToInt(height / (float)CLUSTER_GRID_BLOCK_SIZE);
+            int clusterDimY = Mathf.CeilToInt(height / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
+            int clusterDimZ = Mathf.CeilToInt(zFar / (float)CLUSTER_GRID_BLOCK_SIZE_Z);
 
             // The depth of the cluster grid during clustered rendering is dependent on the 
             // number of clusters subdivisions in the screen Y direction.
@@ -270,7 +281,7 @@ namespace UnityEngine.Rendering.Universal
             float logDimY = 1.0f / Mathf.Log(1.0f + sD);
 
             float logDepth = Mathf.Log(zFar / zNear);
-            int clusterDimZ = Mathf.FloorToInt(logDepth * logDimY);
+            // int clusterDimZ = Mathf.FloorToInt(logDepth * logDimY);
             //Debug.LogError(camera.fieldOfView);
             // Debug.LogError(logDepth + "---" + logDimY + "---" + clusterDimZ);
             m_ClusterInfo.zNear = zNear;
@@ -281,8 +292,9 @@ namespace UnityEngine.Rendering.Universal
             m_ClusterInfo.fieldOfViewY = fieldOfViewY;
             m_ClusterInfo.logDepth = logDepth;
             m_ClusterInfo.logDimY = logDimY;
-            m_ClusterInfo.cluster_SizeX = CLUSTER_GRID_BLOCK_SIZE;
-            m_ClusterInfo.cluster_SizeY = CLUSTER_GRID_BLOCK_SIZE;
+            m_ClusterInfo.cluster_SizeX = CLUSTER_GRID_BLOCK_SIZE_XY;
+            m_ClusterInfo.cluster_SizeY = CLUSTER_GRID_BLOCK_SIZE_XY;
+            m_ClusterInfo.cluster_SizeZ = CLUSTER_GRID_BLOCK_SIZE_Z;
             var projectionMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
             var projectionMatrixInvers = projectionMatrix.inverse;
             m_ClusterInfo.InverseProjectionMatrix = projectionMatrixInvers;
@@ -297,7 +309,7 @@ namespace UnityEngine.Rendering.Universal
         {
             //TODO GC 问题
             int[] gridDims = { m_ClusterInfo.clusterDimX, m_ClusterInfo.clusterDimY, m_ClusterInfo.clusterDimZ };
-            int[] sizes = { CLUSTER_GRID_BLOCK_SIZE, CLUSTER_GRID_BLOCK_SIZE };
+            int[] sizes = { CLUSTER_GRID_BLOCK_SIZE_XY, CLUSTER_GRID_BLOCK_SIZE_XY, CLUSTER_GRID_BLOCK_SIZE_Z };
 
 
             m_ComputeShader.SetInts(ShaderIDs.ClusterCB_GridDim, gridDims);
@@ -375,8 +387,9 @@ namespace UnityEngine.Rendering.Universal
             Shader.SetGlobalInt(ShaderIDs.Cluster_GridCountY, m_ClusterInfo.clusterDimY);
             Shader.SetGlobalInt(ShaderIDs.Cluster_GridCountZ, m_ClusterInfo.clusterDimZ);
             Shader.SetGlobalFloat(ShaderIDs.Cluster_ViewNear, m_ClusterInfo.zNear);
-            Shader.SetGlobalInt(ShaderIDs.Cluster_SizeX, CLUSTER_GRID_BLOCK_SIZE);
-            Shader.SetGlobalInt(ShaderIDs.Cluster_SizeY, CLUSTER_GRID_BLOCK_SIZE);
+            Shader.SetGlobalInt(ShaderIDs.Cluster_SizeX, CLUSTER_GRID_BLOCK_SIZE_XY);
+            Shader.SetGlobalInt(ShaderIDs.Cluster_SizeY, CLUSTER_GRID_BLOCK_SIZE_XY);
+            Shader.SetGlobalInt(ShaderIDs.Cluster_SizeZ, CLUSTER_GRID_BLOCK_SIZE_Z);
             Shader.SetGlobalFloat(ShaderIDs.Cluster_LogGridDimY, m_ClusterInfo.logDimY);
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_AssignTable, m_AssignTableBuffer);
             Shader.SetGlobalBuffer(ShaderIDs.Cluster_PointLightBuffer, m_PointLightBuffer);
@@ -397,6 +410,25 @@ namespace UnityEngine.Rendering.Universal
             // for (int i = 20; i < 40; i++)
             // {
             //     Debug.LogError(tempAABB[i].Min + "---" + tempAABB[i].Max);
+            // }
+
+            // for (int i = 0; i < 10; i++)
+            // {
+            //     int startIndex = i;
+            //     string output = "";
+            //     for (int j = 0; j < AVERAGE_LIGHTS_PER_CLUSTER; j++)
+            //     {
+            //         output += "|" + m_PointLightIndex[i * AVERAGE_LIGHTS_PER_CLUSTER + j];
+            //     }
+            //     Debug.LogError(i + "---" + output);
+            // }
+
+            // for (int i = 0; i < AVERAGE_LIGHTS_PER_CLUSTER * m_ClusterInfo.clusterDimXYZ; i++)
+            // {
+            //     if (m_PointLightIndex[i] > 0)
+            //     {
+            //         Debug.LogError(i + "==" + m_PointLightIndex[i]);
+            //     }
             // }
         }
 
