@@ -884,9 +884,9 @@ namespace UnityEngine.Rendering.Universal
 
             //TODO 不支持SSBO 也不支持
             lightData.supportClusterBasedLighting = settings.supprotClusterBasedLighting;
-#if !UNITY_EDITOR
-            lightData.supportClusterBasedLighting = false;
-#endif
+            // #if !UNITY_EDITOR
+            //             lightData.supportClusterBasedLighting = false;
+            // #endif
             lightData.mainLightIndex = mainLightIndex;
 
             if (settings.additionalLightsRenderingMode != LightRenderingMode.Disabled)

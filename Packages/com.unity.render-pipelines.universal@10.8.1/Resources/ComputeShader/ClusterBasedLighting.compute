@@ -4,10 +4,12 @@
 
 #include "./ClusterBasedLightingCommon.hlsl"
 
+//其实就是最大光源数量
+#define NUM_THREADS 126
 
 RWStructuredBuffer<AABB> RWClusterAABBs;
 
-[numthreads(1024, 1, 1)]
+[numthreads(NUM_THREADS, 1, 1)]
 void ClusterAABB(uint3 id: SV_DispatchThreadID)
 {
     
@@ -67,8 +69,6 @@ StructuredBuffer<PointLight> PointLights;//全部点光源信息
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
 
-//其实就是最大光源数量
-#define NUM_THREADS 1024
 //groupshared 是一个cluster共有了 在AssignLightsToClusters 一次执行过程中共有
 groupshared uint gs_ClusterIndex1D;
 groupshared uint3 gs_ClusterIndex3D;
@@ -91,7 +91,7 @@ void AppendLight(uint lightIndex)
 {
     uint index; // Index into the visible lights array.
     InterlockedAdd(gs_PointLightCount, 1, index);
-    if (index < 1024)
+    if (index < NUM_THREADS)
     {
         gs_PointLightList[index] = lightIndex;
     }
@@ -100,8 +100,40 @@ void AppendLight(uint lightIndex)
 //光源求交
 //每个Cluster执行一次 遍历全部灯光
 [numthreads(NUM_THREADS, 1, 1)]
+// [numthreads(12, 10, 1)]
 void AssignLightsToClusters(ComputeShaderInput IN)
 {
+    
+
+
+    // uint i = IN.GroupThreadID.x, j = IN.GroupThreadID.y, k = IN.GroupID.x;
+    // uint3 clusterId_3D = uint3(i, j, k);
+    // uint clusterId_1D = ComputeClusterIndex1D(clusterId_3D);
+    // AABB aabb = ClusterAABBs[clusterId_1D];
+
+    // uint startIndex = clusterId_1D * 10;
+    // uint endIndex = startIndex;
+
+    // for (int lid = 0; lid < PointLightCount; lid++)
+    // {
+    //     PointLight pointLight = PointLights[i];
+    //     float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.position, 1)).xyz;
+    //     Sphere sphere = {
+    //         pointLightPositionVS, pointLight.range
+    //     };
+
+    //     if (SphereInsideAABB(sphere, aabb))
+    //     {
+    //         RWPointLightIndexList_Cluster[endIndex++] = uint(lid);
+    //     }
+    // }
+
+    // LightIndex lightIndex;
+    // lightIndex.start = startIndex;
+    // lightIndex.count = endIndex - startIndex;
+    // RWLightAssignTable[clusterId_1D] = lightIndex;
+
+
     uint i;//当前光源下标
     //此核心首次调用时候 初始化groupshared变量
     if (IN.GroupIndex == 0)
@@ -116,8 +148,8 @@ void AssignLightsToClusters(ComputeShaderInput IN)
         gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
     }
 
-    //阻塞进程
-    //等待对GroupShared变量的访问
+    // 阻塞进程
+    // 等待对GroupShared变量的访问
     GroupMemoryBarrierWithGroupSync();
 
     //计算当前 cluster  所受点光源影响的总个数 并填充光源index 列表

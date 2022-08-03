@@ -875,7 +875,11 @@ namespace UnityEngine.Rendering.Universal
 
         public ComputeShader clusterBasedLightingComputeShader
         {
-            get { return editorResources.computeShaders.clusterBasedLighting; }
+            get
+            {
+                return Resources.Load<ComputeShader>("ComputeShader/ClusterBasedLighting");
+            }
+            // get { return editorResources.computeShaders.clusterBasedLighting; }
         }
 
 

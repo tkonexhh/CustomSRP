@@ -8,15 +8,9 @@ namespace UnityEngine.Rendering.Universal
     //当相机视锥发生改变时调用
     public struct ClusterInfo
     {
-        public float fieldOfViewY;
+
         public float zNear;
         public float zFar;
-
-        public float sD;
-        public float logDimY;
-        public float logDepth;
-
-        public float nearK;
 
         public Vector4 ScreenDimensions;
 

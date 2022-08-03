@@ -2,16 +2,16 @@
 #define UNITY_CLUSTER_LIGHT_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/Runtime/ComputeShader/ClusterBasedLightingCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/Resources/ComputeShader/ClusterBasedLightingCommon.hlsl"
 
 CBUFFER_START(UnityPerFrame)
 int _Cluster_GridCountX;
 int _Cluster_GridCountY;
 int _Cluster_GridCountZ;
 float _Cluster_ViewNear;
-int _Cluster_SizeX;
-int _Cluster_SizeY;
-int _Cluster_SizeZ;
+float _Cluster_SizeX;
+float _Cluster_SizeY;
+float _Cluster_SizeZ;
 float _Cluster_LogGridDimY;
 
 CBUFFER_END

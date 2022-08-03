@@ -16,7 +16,7 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceTransforms.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Runtime/ComputeShader/ClusterBasedLightingCommon.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Resources/ComputeShader/ClusterBasedLightingCommon.hlsl"
 
             struct Attributes
             {
