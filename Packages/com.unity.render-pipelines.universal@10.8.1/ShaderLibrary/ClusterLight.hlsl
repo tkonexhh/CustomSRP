@@ -2,7 +2,7 @@
 #define UNITY_CLUSTER_LIGHT_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/Resources/ComputeShader/ClusterBasedLightingCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/Shaders/ClusterBasedLighting/ClusterBasedLightingCommon.hlsl"
 
 CBUFFER_START(UnityPerFrame)
 int _Cluster_GridCountX;
@@ -16,8 +16,8 @@ float _Cluster_LogGridDimY;
 
 CBUFFER_END
 float4x4 _CameraWorldMatrix;
-StructuredBuffer<PointLight> _PointLightBuffer;
-StructuredBuffer<LightIndex> _AssignTable;
+StructuredBuffer<float4> _PointLightBuffer;
+StructuredBuffer<uint2> _AssignTable;
 StructuredBuffer<uint> _LightAssignTable;//按照顺序摆放的LightIndex
 
 
@@ -67,8 +67,8 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
 
     // float4 positionSS = ComputeScreenPos(positionCS);
     // uint clusterIndex1D = ComputeClusterIndex1D(positionCS.xy, positionCS.w);
-    uint startOffset = _AssignTable[clusterIndex1D].start;
-    uint lightCount = _AssignTable[clusterIndex1D].count;
+    uint startOffset = _AssignTable[clusterIndex1D].x;//.start;
+    uint lightCount = _AssignTable[clusterIndex1D].y;//.count;
     //return lightCount / 255.0;\
     //lightCount = 0;
 
@@ -76,10 +76,10 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
     for (uint i = 0; i < lightCount; ++i)
     {
         uint lightIndex = _LightAssignTable[startOffset +i];
-        PointLight pointLight = _PointLightBuffer[lightIndex];
+        float4 pointLight = _PointLightBuffer[lightIndex];
 
-        float3 lightPos = pointLight.position;
-        float radius = pointLight.range;
+        float3 lightPos = pointLight.xyz;
+        float radius = pointLight.w;
 
         float distanceToLight = distance(positionWS, lightPos);
         float3 lightDir = -normalize(positionWS - lightPos);
@@ -92,7 +92,7 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
         // distanceFactor *= distanceFactor;
         float distanceFactor = (saturate(radius - distanceToLight)) / radius;
         float NdotL = saturate(dot(normalWS, lightDir));
-        finalRGB += NdotL * pointLight.color * distanceFactor;
+        finalRGB += NdotL * 1 * distanceFactor;
     }
 
     float4 col[5] = {
@@ -103,11 +103,14 @@ half3 ShadeAdditionalPoint(float4 positionCS, float3 positionWS, float3 normalWS
         float4(0.5f, 0.5f, 0.5f, 1)
     };
 
-    //uint3 res = ComputeClusterIndex3D(positionCS.xy, positionCS.w);
-    
+    uint3 res = ComputeClusterIndex3D(positionCS.xy, positionCS.w);
     //uint resInt = frac(res.z * 0.25f) * 4;
     float4 rc = col[lightCount % 5] * 0.021f;
     rc.a = 0;
+    if (lightCount > 0)
+    {
+        finalRGB += half4(0.2 * (res.z / 5.0), 0, 0, 0);
+    }
     return finalRGB ;
 }
 

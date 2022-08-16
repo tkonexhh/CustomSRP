@@ -5,9 +5,10 @@
 #include "./ClusterBasedLightingCommon.hlsl"
 
 //其实就是最大光源数量
-#define NUM_THREADS 126
+#define NUM_THREADS 100
 
-RWStructuredBuffer<AABB> RWClusterAABBs;
+RWStructuredBuffer<float3> RWClusterAABBs;
+RWStructuredBuffer<float3> RWClusterAABBMaxs;
 
 [numthreads(NUM_THREADS, 1, 1)]
 void ClusterAABB(uint3 id: SV_DispatchThreadID)
@@ -50,21 +51,23 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
     float3 aabbMin = min(nearMin, min(nearMax, min(farMin, farMax)));
     float3 aabbMax = max(nearMin, max(nearMax, max(farMin, farMax)));
 
-    AABB aabb = {
-        aabbMin, aabbMax
-    };
+    // AABB aabb = {
+    //     aabbMin, aabbMax
+    // };
     
-    RWClusterAABBs[clusterIndex1D] = aabb;
+    RWClusterAABBs[clusterIndex1D] = aabbMin;
+    RWClusterAABBMaxs[clusterIndex1D] = aabbMax;
 }
 
 
 ///////////////////////////////////////////
 RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
-RWStructuredBuffer<LightIndex> RWLightAssignTable;// : register(u4);
+RWStructuredBuffer<uint2> RWLightAssignTable;// : register(u4);
 RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
 
-StructuredBuffer<AABB> ClusterAABBs;//第一步算好的全部Cluster信息
-StructuredBuffer<PointLight> PointLights;//全部点光源信息
+StructuredBuffer<float3> ClusterAABBs;//第一步算好的全部Cluster信息
+StructuredBuffer<float3> ClusterAABBMaxs;
+StructuredBuffer<float4> PointLights;//全部点光源信息
 
 uint PointLightCount;//点光源总数量
 float4x4 _CameraLastViewMatrix;
@@ -99,13 +102,11 @@ void AppendLight(uint lightIndex)
 
 //光源求交
 //每个Cluster执行一次 遍历全部灯光
-[numthreads(NUM_THREADS, 1, 1)]
-// [numthreads(12, 10, 1)]
+// [numthreads(NUM_THREADS, 1, 1)]
+[numthreads(10, 10, 1)]
 void AssignLightsToClusters(ComputeShaderInput IN)
 {
     
-
-
     // uint i = IN.GroupThreadID.x, j = IN.GroupThreadID.y, k = IN.GroupID.x;
     // uint3 clusterId_3D = uint3(i, j, k);
     // uint clusterId_1D = ComputeClusterIndex1D(clusterId_3D);
@@ -124,6 +125,7 @@ void AssignLightsToClusters(ComputeShaderInput IN)
 
     //     if (SphereInsideAABB(sphere, aabb))
     //     {
+    //         AppendLight(lid);
     //         RWPointLightIndexList_Cluster[endIndex++] = uint(lid);
     //     }
     // }
@@ -144,8 +146,10 @@ void AssignLightsToClusters(ComputeShaderInput IN)
 
         gs_ClusterIndex3D = IN.GroupID;
         gs_ClusterIndex1D = ComputeClusterIndex1D(gs_ClusterIndex3D);
-
-        gs_ClusterAABB = ClusterAABBs[gs_ClusterIndex1D];
+        float3 aabbmin = ClusterAABBs[gs_ClusterIndex1D];
+        float3 aabbmax = ClusterAABBMaxs[gs_ClusterIndex1D];
+        gs_ClusterAABB.Min = aabbmin;
+        gs_ClusterAABB.Max = aabbmax;
     }
 
     // 阻塞进程
@@ -156,14 +160,16 @@ void AssignLightsToClusters(ComputeShaderInput IN)
     // for (i = 0; i < PointLightCount; i++)
     for (i = IN.GroupIndex; i < PointLightCount; i += NUM_THREADS)
     {
-        PointLight pointLight = PointLights[i];
-        float3 pointLightPositionVS = TransformWorldToView(float4(pointLight.position, 1)).xyz;
+        // PointLight pointLight = PointLights[i];
+        float3 pointLightPos = PointLights[i].xyz;
+        float pointLightRange = PointLights[i].w;
+        float3 pointLightPositionVS = TransformWorldToView(float4(pointLightPos, 1)).xyz;
         //pointLightPositionVS *= float3(1, 1, -1);
         //pointLightPositionVS = pointLight.position;
         //灯光是世界坐标的 需要放在同一坐标系下
         //AABB都是基于0矩阵的 非世界坐标
         Sphere sphere = {
-            pointLightPositionVS, pointLight.range
+            pointLightPositionVS, pointLightRange
         };
 
         //AppendLight(i);
@@ -191,7 +197,7 @@ void AssignLightsToClusters(ComputeShaderInput IN)
         LightIndex lightIndex;
         lightIndex.start = gs_PointLightStartOffset;
         lightIndex.count = gs_PointLightCount;
-        RWLightAssignTable[gs_ClusterIndex1D] = lightIndex;
+        RWLightAssignTable[gs_ClusterIndex1D] = uint2(lightIndex.start, lightIndex.count);
     }
 
 

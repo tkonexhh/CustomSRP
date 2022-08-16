@@ -12,9 +12,9 @@ namespace UnityEngine.Rendering.Universal
     {
 
         ProfilingSampler m_ProfilingSampler;
-        // const int CLUSTER_GRID_BLOCK_SIZE_XY = 64;//单个Block像素大小
-        // const int CLUSTER_GRID_BLOCK_SIZE_Z = 5;//单个Block像素大小
-        const int MAX_NUM_POINT_LIGHT = 126;
+        const int CLUSTER_GRID_BLOCK_SIZE_XY = 64;//单个Block像素大小
+        const int CLUSTER_GRID_BLOCK_SIZE_Z = 5;//单个Block像素大小
+        const int MAX_NUM_POINT_LIGHT = 100;
         private int AVERAGE_LIGHTS_PER_CLUSTER = 10;
 
         private int CLUSTER_GRID_SIZE_X = 10;
@@ -25,6 +25,7 @@ namespace UnityEngine.Rendering.Universal
         ClusterInfo m_ClusterInfo;
         //计算视锥AABB
         ComputeBuffer m_ClusterAABBBuffer;//存放计算好的ClusterAABB
+        ComputeBuffer m_ClusterAABBMaxBuffer;
         //光源求交
         ComputeBuffer m_PointLightBuffer;//存放点光源参数
         ComputeBuffer m_ClusterPointLightIndexCounterBuffer;
@@ -36,10 +37,10 @@ namespace UnityEngine.Rendering.Universal
 
         ComputeShader m_ComputeShader;
 
-        List<ClusterPointLight> m_PointLightPosRangeList = new List<ClusterPointLight>();//存放点光源位置和范围 xyz:pos w:range
+        List<Vector4> m_PointLightPosRangeList = new List<Vector4>();//存放点光源位置和范围 xyz:pos w:range
 
         //初始变量
-        LightIndex[] m_Vec2Girds;
+        Vector2Int[] m_Vec2Girds;
         uint[] m_UCounter = { 0 };
 
         //debug
@@ -84,6 +85,7 @@ namespace UnityEngine.Rendering.Universal
         ~ClusterBasedLights()
         {
             m_ClusterAABBBuffer?.Dispose();
+            m_ClusterAABBMaxBuffer?.Dispose();
             m_PointLightBuffer?.Dispose();
             m_ClusterPointLightIndexCounterBuffer?.Dispose();
             m_AssignTableBuffer?.Dispose();
@@ -91,6 +93,7 @@ namespace UnityEngine.Rendering.Universal
             m_DrawDebugClusterBuffer?.Dispose();
 
             m_ClusterAABBBuffer = null;
+            m_ClusterAABBMaxBuffer = null;
             m_PointLightBuffer = null;
             m_ClusterPointLightIndexCounterBuffer = null;
             m_AssignTableBuffer = null;
@@ -107,7 +110,7 @@ namespace UnityEngine.Rendering.Universal
         {
             m_PointLightPosRangeList.Clear();
             // 检索出全部点光源
-            for (int i = 0; i < renderingData.lightData.visibleLights.Length; i++)
+            for (int i = 0; i < Mathf.Min(renderingData.lightData.visibleLights.Length, MAX_NUM_POINT_LIGHT); i++)
             {
                 if (renderingData.lightData.visibleLights[i].lightType == LightType.Point)
                 {
@@ -118,13 +121,14 @@ namespace UnityEngine.Rendering.Universal
                     pointLight.Range = renderingData.lightData.visibleLights[i].range;
                     var color = renderingData.lightData.visibleLights[i].finalColor;
                     pointLight.color = new Vector3(color.r, color.g, color.b);
-                    m_PointLightPosRangeList.Add(pointLight);
+                    // m_PointLightPosRangeList.Add(pointLight);
+                    m_PointLightPosRangeList.Add(new Vector4(pointLight.Position.x, pointLight.Position.y, pointLight.Position.z, pointLight.Range));
                 }
             }
 
             //Light Buffer
             if (m_PointLightBuffer == null)
-                m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<ClusterPointLight>(MAX_NUM_POINT_LIGHT);
+                m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<Vector4>(MAX_NUM_POINT_LIGHT);
 
             m_PointLightBuffer.SetData(m_PointLightPosRangeList);
 
@@ -152,17 +156,20 @@ namespace UnityEngine.Rendering.Universal
                     CalculateClusterInfo(ref renderingData);
 
 
-                    m_ClusterAABBBuffer = ComputeHelper.CreateStructuredBuffer<AABB>(m_ClusterInfo.clusterDimXYZ);
+                    m_ClusterAABBBuffer = ComputeHelper.CreateStructuredBuffer<Vector3>(m_ClusterInfo.clusterDimXYZ);
+                    m_ClusterAABBMaxBuffer = ComputeHelper.CreateStructuredBuffer<Vector3>(m_ClusterInfo.clusterDimXYZ);
 
                     m_ClusterPointLightIndexCounterBuffer = ComputeHelper.CreateStructuredBuffer<uint>(1);
-                    m_AssignTableBuffer = ComputeHelper.CreateStructuredBuffer<LightIndex>(m_ClusterInfo.clusterDimXYZ);
+                    m_AssignTableBuffer = ComputeHelper.CreateStructuredBuffer<Vector2Int>(m_ClusterInfo.clusterDimXYZ);
                     m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_ClusterInfo.clusterDimXYZ * AVERAGE_LIGHTS_PER_CLUSTER);//预估一个格子里面不会超过20个灯光
 
                     m_KernelOfClusterAABB = m_ComputeShader.FindKernel("ClusterAABB");
                     m_kernelAssignLightsToClusters = m_ComputeShader.FindKernel("AssignLightsToClusters");
 
-                    //---------
-                    cmd.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBs", m_ClusterAABBBuffer);
+                    // //---------
+                    // cmd.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBs", m_ClusterAABBBuffer);
+                    // cmd.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBMaxs", m_ClusterAABBMaxBuffer);
+
                     // m_ComputeShader.SetBuffer(m_KernelOfClusterAABB, "RWClusterAABBs", m_ClusterAABBBuffer);
                     //---------
                     //output
@@ -175,17 +182,19 @@ namespace UnityEngine.Rendering.Universal
                     //Input
                     cmd.SetComputeBufferParam(m_ComputeShader, m_kernelAssignLightsToClusters, "PointLights", m_PointLightBuffer);
                     cmd.SetComputeBufferParam(m_ComputeShader, m_kernelAssignLightsToClusters, "ClusterAABBs", m_ClusterAABBBuffer);
+                    cmd.SetComputeBufferParam(m_ComputeShader, m_kernelAssignLightsToClusters, "ClusterAABBMaxs", m_ClusterAABBMaxBuffer);
                     // m_ComputeShader.SetBuffer(m_kernelAssignLightsToClusters, "PointLights", m_PointLightBuffer);
                     // m_ComputeShader.SetBuffer(m_kernelAssignLightsToClusters, "ClusterAABBs", m_ClusterAABBBuffer);
 
                     //初始化默认数据
-                    m_Vec2Girds = new LightIndex[m_ClusterInfo.clusterDimXYZ];
+                    m_Vec2Girds = new Vector2Int[m_ClusterInfo.clusterDimXYZ];
                     for (int i = 0; i < m_Vec2Girds.Length; i++)
                     {
                         LightIndex lightIndex = new LightIndex();
                         lightIndex.start = i * AVERAGE_LIGHTS_PER_CLUSTER;
                         lightIndex.count = 0;
-                        m_Vec2Girds[i] = lightIndex;
+                        // m_Vec2Girds[i] = lightIndex;
+                        m_Vec2Girds[i] = new Vector2Int(lightIndex.start, lightIndex.count);
                     }
 
                     ClusterGenerate(ref cmd, ref renderingData);
@@ -237,9 +246,9 @@ namespace UnityEngine.Rendering.Universal
                       1.0f / (float)cameraData.pixelHeight
                       );
 
-            int clusterDimX = CLUSTER_GRID_SIZE_X;//Mathf.CeilToInt(width / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
-            int clusterDimY = CLUSTER_GRID_SIZE_Y;//Mathf.CeilToInt(height / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
-            int clusterDimZ = CLUSTER_GRID_SIZE_Z;//Mathf.CeilToInt(zFar / (float)CLUSTER_GRID_BLOCK_SIZE_Z);
+            int clusterDimX = Mathf.CeilToInt(width / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
+            int clusterDimY = Mathf.CeilToInt(height / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
+            int clusterDimZ = Mathf.CeilToInt(zFar / (float)CLUSTER_GRID_BLOCK_SIZE_Z);
 
 
             m_ClusterInfo.zNear = zNear;
@@ -280,6 +289,7 @@ namespace UnityEngine.Rendering.Universal
 
             int threadGroups = Mathf.CeilToInt(m_ClusterInfo.clusterDimXYZ / MAX_NUM_POINT_LIGHT);
             commandBuffer.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBs", m_ClusterAABBBuffer);
+            commandBuffer.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBMaxs", m_ClusterAABBMaxBuffer);
             var projectionMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
             var projectionMatrixInvers = projectionMatrix.inverse;
             //cmd.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projectionMatrix);
@@ -300,6 +310,7 @@ namespace UnityEngine.Rendering.Universal
             //Input
             commandBuffer.SetComputeBufferParam(m_ComputeShader, m_kernelAssignLightsToClusters, "PointLights", m_PointLightBuffer);
             commandBuffer.SetComputeBufferParam(m_ComputeShader, m_kernelAssignLightsToClusters, "ClusterAABBs", m_ClusterAABBBuffer);
+            commandBuffer.SetComputeBufferParam(m_ComputeShader, m_kernelAssignLightsToClusters, "ClusterAABBMaxs", m_ClusterAABBMaxBuffer);
 
             //初始化数据
             commandBuffer.SetComputeBufferData(m_ClusterPointLightIndexCounterBuffer, m_UCounter);
