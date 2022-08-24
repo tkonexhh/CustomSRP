@@ -17,7 +17,10 @@ namespace UnityEngine.Rendering.Universal
         ColorGradingLutPass m_ColorGradingLutPass;
         DepthOnlyPass m_DepthPrepass;
         DepthNormalOnlyPass m_DepthNormalPrepass;
-        MainLightShadowCasterPass m_MainLightShadowCasterPass;
+        MainLightShadowCasterCachedPass m_MainLightShadowCasterPass;
+        // MainLightShadowCasterPass m_MainLightShadowCasterPass;
+
+
         AdditionalLightsShadowCasterPass m_AdditionalLightsShadowCasterPass;
 
         DrawTerrainPass m_DrawTerrainPass;
@@ -87,7 +90,7 @@ namespace UnityEngine.Rendering.Universal
             m_ForwardLights = new ForwardLights();
             m_ClusterBasedLights = new ClusterBasedLights(RenderPassEvent.BeforeRenderingOpaques);
 
-            m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
+            m_MainLightShadowCasterPass = new MainLightShadowCasterCachedPass(RenderPassEvent.BeforeRenderingShadows);
             m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
             m_DepthPrepass = new DepthOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.opaqueLayerMask);
             m_DepthNormalPrepass = new DepthNormalOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.opaqueLayerMask);
@@ -145,6 +148,11 @@ namespace UnityEngine.Rendering.Universal
         /// <inheritdoc />
         protected override void Dispose(bool disposing)
         {
+            if (m_MainLightShadowCasterPass != null)
+            {
+                m_MainLightShadowCasterPass.Cleanup();
+                m_MainLightShadowCasterPass = null;
+            }
             // always dispose unmanaged resources
             m_PostProcessPass.Cleanup();
             m_FinalPostProcessPass.Cleanup();
@@ -291,8 +299,8 @@ namespace UnityEngine.Rendering.Universal
             if (mainLightShadows)
                 EnqueuePass(m_MainLightShadowCasterPass);
 
-            if (additionalLightShadows)
-                EnqueuePass(m_AdditionalLightsShadowCasterPass);
+            // if (additionalLightShadows)
+            //     EnqueuePass(m_AdditionalLightsShadowCasterPass);
 
             if (requiresDepthPrepass)
             {
