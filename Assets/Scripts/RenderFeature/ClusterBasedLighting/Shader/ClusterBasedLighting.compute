@@ -7,11 +7,11 @@
 //其实就是最大光源数量
 #define NUM_THREADS 100
 
-RWStructuredBuffer<float3> RWClusterAABBs;
+RWStructuredBuffer<float3> RWClusterAABBMins;
 RWStructuredBuffer<float3> RWClusterAABBMaxs;
 
 [numthreads(NUM_THREADS, 1, 1)]
-void ClusterAABB(uint3 id: SV_DispatchThreadID)
+void ClusterAABB(uint3 id : SV_DispatchThreadID)
 {
     
     uint clusterIndex1D = id.x;
@@ -55,7 +55,7 @@ void ClusterAABB(uint3 id: SV_DispatchThreadID)
     //     aabbMin, aabbMax
     // };
     
-    RWClusterAABBs[clusterIndex1D] = aabbMin;
+    RWClusterAABBMins[clusterIndex1D] = aabbMin;
     RWClusterAABBMaxs[clusterIndex1D] = aabbMax;
 }
 
@@ -65,7 +65,7 @@ RWStructuredBuffer<uint> RWPointLightIndexCounter_Cluster;// : register(u2);
 RWStructuredBuffer<uint2> RWLightAssignTable;// : register(u4);
 RWStructuredBuffer<uint> RWPointLightIndexList_Cluster;// : register(u6);
 
-StructuredBuffer<float3> ClusterAABBs;//第一步算好的全部Cluster信息
+StructuredBuffer<float3> ClusterAABBMins;//第一步算好的全部Cluster信息
 StructuredBuffer<float3> ClusterAABBMaxs;
 StructuredBuffer<float4> PointLights;//全部点光源信息
 
@@ -146,7 +146,7 @@ void AssignLightsToClusters(ComputeShaderInput IN)
 
         gs_ClusterIndex3D = IN.GroupID;
         gs_ClusterIndex1D = ComputeClusterIndex1D(gs_ClusterIndex3D);
-        float3 aabbmin = ClusterAABBs[gs_ClusterIndex1D];
+        float3 aabbmin = ClusterAABBMins[gs_ClusterIndex1D];
         float3 aabbmax = ClusterAABBMaxs[gs_ClusterIndex1D];
         gs_ClusterAABB.Min = aabbmin;
         gs_ClusterAABB.Max = aabbmax;

@@ -17,8 +17,8 @@ namespace UnityEngine.Rendering.Universal
         ColorGradingLutPass m_ColorGradingLutPass;
         DepthOnlyPass m_DepthPrepass;
         DepthNormalOnlyPass m_DepthNormalPrepass;
-        MainLightShadowCasterCachedPass m_MainLightShadowCasterPass;
-        // MainLightShadowCasterPass m_MainLightShadowCasterPass;
+        // MainLightShadowCasterCachedPass m_MainLightShadowCasterPass;
+        MainLightShadowCasterPass m_MainLightShadowCasterPass;
 
 
         AdditionalLightsShadowCasterPass m_AdditionalLightsShadowCasterPass;
@@ -90,7 +90,8 @@ namespace UnityEngine.Rendering.Universal
             m_ForwardLights = new ForwardLights();
             m_ClusterBasedLights = new ClusterBasedLights(RenderPassEvent.BeforeRenderingOpaques);
 
-            m_MainLightShadowCasterPass = new MainLightShadowCasterCachedPass(RenderPassEvent.BeforeRenderingShadows);
+            // m_MainLightShadowCasterPass = new MainLightShadowCasterCachedPass(RenderPassEvent.BeforeRenderingShadows);
+            m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
             m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
             m_DepthPrepass = new DepthOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.opaqueLayerMask);
             m_DepthNormalPrepass = new DepthNormalOnlyPass(RenderPassEvent.BeforeRenderingPrepasses, ShaderDefine.OPAQUE_RENDER_QUEUE_RANGE, data.opaqueLayerMask);
@@ -150,7 +151,7 @@ namespace UnityEngine.Rendering.Universal
         {
             if (m_MainLightShadowCasterPass != null)
             {
-                m_MainLightShadowCasterPass.Cleanup();
+                // m_MainLightShadowCasterPass.Cleanup();
                 m_MainLightShadowCasterPass = null;
             }
             // always dispose unmanaged resources
@@ -327,8 +328,8 @@ namespace UnityEngine.Rendering.Universal
             supportClusterBasedLighting &= !isPreviewCamera;
             supportClusterBasedLighting &= cameraData.renderType == CameraRenderType.Base;
             // Debug.LogError(camera.gameObject.name + "---" + supportClusterBasedLighting + "---" + isPreviewCamera + "---" + camera.cameraType);
-            if (supportClusterBasedLighting)
-                EnqueuePass(m_ClusterBasedLights);
+            // if (supportClusterBasedLighting)
+            //     EnqueuePass(m_ClusterBasedLights);
 
 
             // Optimized store actions are very important on tile based GPUs and have a great impact on performance.
@@ -495,10 +496,10 @@ namespace UnityEngine.Rendering.Universal
         public override void SetupLights(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             m_ForwardLights.Setup(context, ref renderingData);
-            if (renderingData.lightData.supportClusterBasedLighting)
-            {
-                m_ClusterBasedLights.SetupLights(context, ref renderingData);
-            }
+            // if (renderingData.lightData.supportClusterBasedLighting)
+            // {
+            //     m_ClusterBasedLights.SetupLights(context, ref renderingData);
+            // }
         }
 
         /// <inheritdoc />

@@ -14,7 +14,7 @@ public class DebugClusterBasedLighting : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.U))
         {
-            ClusterBasedLights.UpdateDebugPos = !ClusterBasedLights.UpdateDebugPos;
+            ClusterBasedLightingPass.UpdateDebugPos = !ClusterBasedLightingPass.UpdateDebugPos;
 
         }
     }
@@ -38,7 +38,7 @@ public class DebugClusterBasedLighting : MonoBehaviour
     {
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.U)
         {
-            ClusterBasedLights.UpdateDebugPos = !ClusterBasedLights.UpdateDebugPos;
+            ClusterBasedLightingPass.UpdateDebugPos = !ClusterBasedLightingPass.UpdateDebugPos;
         }
     }
 #endif
