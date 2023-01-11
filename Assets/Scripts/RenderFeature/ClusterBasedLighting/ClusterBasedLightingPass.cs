@@ -49,6 +49,10 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
     public ClusterInfo clusterInfo => m_ClusterInfo;
 
 
+    int m_OldWidth = -1;
+    int m_OldHeight = -1;
+
+
     struct ShaderIDs
     {
         internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrix");
@@ -124,6 +128,16 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
             if (camera.name.Contains("Preview"))
             {
                 return;
+            }
+
+            //当视图大小发生变化时 就需要重新Init
+            int width = renderingData.cameraData.cameraTargetDescriptor.width;
+            int height = renderingData.cameraData.cameraTargetDescriptor.height;
+            if (m_OldWidth != width || m_OldHeight != height)
+            {
+                m_OldWidth = width;
+                m_OldHeight = height;
+                m_Init = false;
             }
 
             if (!m_Init)
@@ -233,7 +247,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         m_ClusterInfo.clusterDimY = clusterDimY;
         m_ClusterInfo.clusterDimZ = clusterDimZ;
         m_ClusterInfo.clusterDimXYZ = clusterDimX * clusterDimY * clusterDimZ;//总个数
-        Debug.LogError(clusterDimX + "|" + clusterDimY + "|" + clusterDimZ);
+        // Debug.LogError(clusterDimX + "|" + clusterDimY + "|" + clusterDimZ);
     }
 
     void UpdateClusterBuffer(ref RenderingData renderingData)

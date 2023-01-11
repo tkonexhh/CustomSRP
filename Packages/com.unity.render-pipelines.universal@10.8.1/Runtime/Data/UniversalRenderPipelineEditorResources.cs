@@ -46,17 +46,9 @@ namespace UnityEngine.Rendering.Universal
             public Material terrainLit;
         }
 
-        [Serializable, ReloadGroup]
-        public sealed class ComputeShaderResources
-        {
-            [Reload("Runtime/ComputeShader/ClusterBasedLighting.compute")]
-            public ComputeShader clusterBasedLighting;
-        }
-
 
         public ShaderResources shaders;
         public MaterialResources materials;
-        public ComputeShaderResources computeShaders;
     }
 
 #if UNITY_EDITOR

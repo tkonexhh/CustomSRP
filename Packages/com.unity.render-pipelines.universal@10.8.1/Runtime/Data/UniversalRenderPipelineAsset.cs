@@ -178,7 +178,7 @@ namespace UnityEngine.Rendering.Universal
         [SerializeField] bool m_UseSRPBatcher = true;
         [SerializeField] bool m_SupportsDynamicBatching = false;
         [SerializeField] bool m_MixedLightingSupported = true;
-        [SerializeField][Obsolete] PipelineDebugLevel m_DebugLevel;
+        [SerializeField] [Obsolete] PipelineDebugLevel m_DebugLevel;
 
         // Adaptive performance settings
         [SerializeField] bool m_UseAdaptivePerformance = true;
@@ -873,14 +873,6 @@ namespace UnityEngine.Rendering.Universal
 
 #endif
 
-        public ComputeShader clusterBasedLightingComputeShader
-        {
-            // get
-            // {
-            //     return Resources.Load<ComputeShader>("ComputeShader/ClusterBasedLighting");
-            // }
-            get { return editorResources.computeShaders.clusterBasedLighting; }
-        }
 
 
         public void OnBeforeSerialize()

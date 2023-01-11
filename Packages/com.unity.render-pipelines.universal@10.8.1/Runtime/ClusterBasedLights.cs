@@ -79,7 +79,7 @@ namespace UnityEngine.Rendering.Universal
             renderPassEvent = evt;
             m_ProfilingSampler = new ProfilingSampler("ClusterBasedLights");
             //TODO 这个只在编辑器下生效  需要改
-            m_ComputeShader = UniversalRenderPipeline.asset.clusterBasedLightingComputeShader;
+            // m_ComputeShader = UniversalRenderPipeline.asset.clusterBasedLightingComputeShader;
         }
 
         ~ClusterBasedLights()
