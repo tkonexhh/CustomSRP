@@ -40,17 +40,15 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
     Vector2Int[] m_Vec2Girds;
     uint[] m_UCounter = { 0 };
 
-    //debug
-    public static bool UpdateDebugPos = true;
+    int m_OldWidth = -1;
+    int m_OldHeight = -1;
+    ClusterBasedLightingRenderFeature.Settings m_Settings;
 
     public ComputeBuffer clusterAABBMinBuffer => m_ClusterAABBMinBuffer;
     public ComputeBuffer clusterAABBMaxBuffer => m_ClusterAABBMaxBuffer;
     public ComputeBuffer assignTableBuffer => m_AssignTableBuffer;
     public ClusterInfo clusterInfo => m_ClusterInfo;
 
-
-    int m_OldWidth = -1;
-    int m_OldHeight = -1;
 
 
     struct ShaderIDs
@@ -60,8 +58,6 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         internal static readonly int ClusterCB_ScreenDimensions = Shader.PropertyToID("ClusterCB_ScreenDimensions");
         internal static readonly int ClusterCB_GridDim = Shader.PropertyToID("ClusterCB_GridDim");
         internal static readonly int ClusterCB_Size = Shader.PropertyToID("ClusterCB_Size");
-        // internal static readonly int ClusterCB_NearK = Shader.PropertyToID("ClusterCB_NearK");
-        // internal static readonly int ClusterCB_LogGridDimY = Shader.PropertyToID("ClusterCB_LogGridDimY");
 
         //用于Shading
         internal static readonly int Cluster_GridCountX = Shader.PropertyToID("_Cluster_GridCountX");
@@ -78,11 +74,12 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         internal static readonly int Cluster_AssignTable = Shader.PropertyToID("_AssignTable");
     };
 
-    public ClusterBasedLightingPass(ComputeShader computeShader)
+    public ClusterBasedLightingPass(ClusterBasedLightingRenderFeature.Settings settings)
     {
+        m_Settings = settings;
         renderPassEvent = RenderPassEvent.BeforeRendering;
         m_ProfilingSampler = new ProfilingSampler("ClusterBasedLights");
-        m_ComputeShader = computeShader;
+        m_ComputeShader = m_Settings.mainComputeShader;
     }
 
 
@@ -144,9 +141,11 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
             {
                 // m_CurrentCamera = camera;
                 //当FOV clipplane 发生变化 就需要重新计算
-                CalculateClusterInfo(ref renderingData);
+                m_ClusterInfo = ClusterInfo.CalcClusterInfo(ref renderingData, CLUSTER_GRID_BLOCK_SIZE_XY, CLUSTER_GRID_BLOCK_SIZE_Z);
+                // CalculateClusterInfo(ref renderingData);
 
-
+                if (m_ClusterAABBMinBuffer != null) m_ClusterAABBMinBuffer.Release();
+                if (m_ClusterAABBMaxBuffer != null) m_ClusterAABBMaxBuffer.Release();
                 m_ClusterAABBMinBuffer = ComputeHelper.CreateStructuredBuffer<Vector3>(m_ClusterInfo.clusterDimXYZ);
                 m_ClusterAABBMaxBuffer = ComputeHelper.CreateStructuredBuffer<Vector3>(m_ClusterInfo.clusterDimXYZ);
 
@@ -189,7 +188,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
                 }
 
                 ClusterGenerate(ref cmd, ref renderingData);
-
+                LogDebug();
                 m_Init = true;
             }
 
@@ -204,7 +203,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
             SetShaderParameters(ref renderingData.cameraData);
 
-            LogDebug();
+
 
         }
 
@@ -212,43 +211,6 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         CommandBufferPool.Release(cmd);
     }
 
-
-    void CalculateClusterInfo(ref RenderingData renderingData)
-    {
-        var cameraData = renderingData.cameraData;
-        var camera = cameraData.camera;
-
-        // The half-angle of the field of view in the Y-direction.
-        // float fieldOfViewY = camera.fieldOfView * Mathf.Deg2Rad * 0.5f;//Degree 2 Radiance:  Param.CameraInfo.Property.Perspective.fFovAngleY * 0.5f;
-        float zNear = camera.nearClipPlane;// Param.CameraInfo.Property.Perspective.fMinVisibleDistance;
-        float zFar = Mathf.Min(100, camera.farClipPlane);// 多光源只计算50米
-        // float zFar = camera.farClipPlane;
-
-        int width = renderingData.cameraData.cameraTargetDescriptor.width;
-        int height = renderingData.cameraData.cameraTargetDescriptor.height;//.pixelHeight;
-        Vector4 screenDimensions = new Vector4(width, height, 1.0f / (float)width, 1.0f / (float)height);
-
-        int clusterDimX = Mathf.CeilToInt(width / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
-        int clusterDimY = Mathf.CeilToInt(height / (float)CLUSTER_GRID_BLOCK_SIZE_XY);
-        int clusterDimZ = Mathf.CeilToInt(zFar / (float)CLUSTER_GRID_BLOCK_SIZE_Z);
-
-
-        m_ClusterInfo.zNear = zNear;
-        m_ClusterInfo.zFar = zFar;
-        m_ClusterInfo.ScreenDimensions = screenDimensions;
-        // m_ClusterInfo.fieldOfViewY = fieldOfViewY;
-        m_ClusterInfo.cluster_SizeX = width / (float)clusterDimX;//CLUSTER_GRID_BLOCK_SIZE_XY;
-        m_ClusterInfo.cluster_SizeY = height / (float)clusterDimY;//CLUSTER_GRID_BLOCK_SIZE_XY;
-        m_ClusterInfo.cluster_SizeZ = zFar / (float)clusterDimZ;
-        var projectionMatrix = renderingData.cameraData.GetGPUProjectionMatrix();
-        var projectionMatrixInvers = projectionMatrix.inverse;
-        m_ClusterInfo.InverseProjectionMatrix = projectionMatrixInvers;
-        m_ClusterInfo.clusterDimX = clusterDimX;
-        m_ClusterInfo.clusterDimY = clusterDimY;
-        m_ClusterInfo.clusterDimZ = clusterDimZ;
-        m_ClusterInfo.clusterDimXYZ = clusterDimX * clusterDimY * clusterDimZ;//总个数
-        // Debug.LogError(clusterDimX + "|" + clusterDimY + "|" + clusterDimZ);
-    }
 
     void UpdateClusterBuffer(ref RenderingData renderingData)
     {
@@ -276,7 +238,8 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         var projectionMatrixInvers = projectionMatrix.inverse;
         //cmd.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projectionMatrix);
         commandBuffer.SetComputeMatrixParam(m_ComputeShader, ShaderIDs.InverseProjectionMatrix, projectionMatrixInvers);
-        commandBuffer.DispatchCompute(m_ComputeShader, m_KernelOfClusterAABB, threadGroups, 1, 1);
+        if (threadGroups > 0)
+            commandBuffer.DispatchCompute(m_ComputeShader, m_KernelOfClusterAABB, threadGroups, 1, 1);
     }
 
     //光源求交
@@ -300,7 +263,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
         //Input
         commandBuffer.SetComputeIntParams(m_ComputeShader, "PointLightCount", m_PointLightPosRangeList.Count);
-        if (UpdateDebugPos)
+        if (ClusterBasedLightingRenderFeature.UpdateDebugPos)
             commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_CameraLastViewMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
 
         commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_W2CMatrix", cameraData.GetViewMatrix().inverse);
@@ -309,7 +272,8 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         //Debug.LogError("相机矩阵" + cameraData.camera.transform.localToWorldMatrix);
         //Debug.LogError("V" + cameraData.camera.worldToCameraMatrix);
         // commandBuffer.DispatchCompute(m_ComputeShader, m_kernelAssignLightsToClusters, m_ClusterInfo.clusterDimZ, 1, 1);
-        commandBuffer.DispatchCompute(m_ComputeShader, m_kernelAssignLightsToClusters, m_ClusterInfo.clusterDimX, m_ClusterInfo.clusterDimY, m_ClusterInfo.clusterDimZ);
+        if (m_ClusterInfo.clusterDimXYZ > 0)
+            commandBuffer.DispatchCompute(m_ComputeShader, m_kernelAssignLightsToClusters, m_ClusterInfo.clusterDimX, m_ClusterInfo.clusterDimY, m_ClusterInfo.clusterDimZ);
     }
 
 
@@ -334,13 +298,16 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
     void LogDebug()
     {
-        //检查计算结果是否与CS计算的一致
+        // Debug.LogError("CS======================");
 
-        // AABB[] tempAABB = new AABB[m_ClusterInfo.clusterDimXYZ];
-        // m_ClusterAABBBuffer.GetData(tempAABB);
+        // //检查计算结果是否与CS计算的一致
+        // Vector3[] tempMin = new Vector3[m_ClusterInfo.clusterDimXYZ];
+        // Vector3[] tempMax = new Vector3[m_ClusterInfo.clusterDimXYZ];
+        // m_ClusterAABBMinBuffer.GetData(tempMin);
+        // m_ClusterAABBMaxBuffer.GetData(tempMax);
         // for (int i = 20; i < 40; i++)
         // {
-        //     Debug.LogError(tempAABB[i].Min + "---" + tempAABB[i].Max);
+        //     Debug.LogError(tempMin[i] + "===" + tempMax[i]);
         // }
 
         // for (int i = 0; i < 10; i++)
@@ -380,7 +347,6 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         m_ClusterPointLightIndexListBuffer = null;
         m_ComputeShader = null;
         m_Init = false;
-        UpdateDebugPos = true;
     }
 }
 

@@ -10,7 +10,7 @@ public class ClusterBasedLightingDebugPass : ScriptableRenderPass
 {
     ProfilingSampler m_ProfilingSampler;
     ComputeBuffer m_DrawDebugClusterBuffer;
-    Material m_ClusterDebugMaterial;
+    Material m_ClusterDebugMaterial = null;
     int m_OldCount;
 
 
@@ -18,11 +18,15 @@ public class ClusterBasedLightingDebugPass : ScriptableRenderPass
 
     public ClusterBasedLightingDebugPass(ClusterBasedLightingRenderFeature.Settings settings)
     {
-        m_ProfilingSampler = new ProfilingSampler("ClusterBasedLights_Debug");
-        m_ClusterDebugMaterial = new Material(Shader.Find("Hidden/ClusterBasedLighting/DebugClusterAABB"));
-
         renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
+        m_ProfilingSampler = new ProfilingSampler("ClusterBasedLights_Debug");
         m_Setting = settings;
+
+        var shader = Shader.Find("Hidden/ClusterBasedLighting/DebugClusterAABB");
+        if (shader != null)
+            m_ClusterDebugMaterial = new Material(shader);
+
+
     }
 
     public void Setup(ComputeBuffer clusterAABBMinBuffer, ComputeBuffer clusterAABBMaxBuffer, ComputeBuffer assignTableBuffer, int count)
@@ -46,7 +50,7 @@ public class ClusterBasedLightingDebugPass : ScriptableRenderPass
 
     void DebugCluster(ref CommandBuffer commandBuffer, ref CameraData cameraData)
     {
-        if (ClusterBasedLightingPass.UpdateDebugPos)
+        if (ClusterBasedLightingRenderFeature.UpdateDebugPos)
             m_ClusterDebugMaterial.SetMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix);
 
         commandBuffer.DrawMeshInstancedIndirect(CubeMesh, 0, m_ClusterDebugMaterial, 0, m_DrawDebugClusterBuffer, 0);
@@ -55,6 +59,9 @@ public class ClusterBasedLightingDebugPass : ScriptableRenderPass
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
     {
+        if (m_ClusterDebugMaterial == null)
+            return;
+
         CommandBuffer cmd = CommandBufferPool.Get();
         using (new ProfilingScope(cmd, m_ProfilingSampler))
         {
@@ -70,8 +77,8 @@ public class ClusterBasedLightingDebugPass : ScriptableRenderPass
         m_DrawDebugClusterBuffer = null;
     }
 
-    private Mesh m_CubeMesh;
-    private Mesh CubeMesh
+    private static Mesh m_CubeMesh;
+    public static Mesh CubeMesh
     {
         get
         {

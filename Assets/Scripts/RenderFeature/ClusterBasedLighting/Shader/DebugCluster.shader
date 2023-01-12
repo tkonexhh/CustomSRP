@@ -61,7 +61,7 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
                 float fClusterLightCount = LightAssignTable[clusterID].count;
                 if (fClusterLightCount > 0)
                 {
-                    vsOutput.color = half4(1, 0, 0, 0.2);
+                    vsOutput.color = half4(0.125 * fClusterLightCount, 0, 0, 0.2);
                 }
 
                 return vsOutput;

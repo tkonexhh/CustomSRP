@@ -63,7 +63,6 @@ namespace UnityEngine.Rendering.Universal
         public static RenderTargetIdentifier depthNormalsIdentifier = new RenderTargetIdentifier(ShaderDefine.CAMERA_DEPTH_NORMAL_TEXTURE);
 
         ForwardLights m_ForwardLights;
-        ClusterBasedLights m_ClusterBasedLights;
 
         StencilState m_DefaultStencilState;
 
@@ -88,7 +87,6 @@ namespace UnityEngine.Rendering.Universal
             m_DefaultStencilState.SetZFailOperation(stencilData.zFailOperation);
 
             m_ForwardLights = new ForwardLights();
-            m_ClusterBasedLights = new ClusterBasedLights(RenderPassEvent.BeforeRenderingOpaques);
 
             // m_MainLightShadowCasterPass = new MainLightShadowCasterCachedPass(RenderPassEvent.BeforeRenderingShadows);
             m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);

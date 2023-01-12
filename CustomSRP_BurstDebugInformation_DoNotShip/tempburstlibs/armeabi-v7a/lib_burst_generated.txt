@@ -91,6 +91,11 @@ Library: lib_burst_generated
 --compilation-defines=UNITY_UNITYADS_API
 --compilation-defines=ENABLE_MONO
 --compilation-defines=NET_STANDARD_2_0
+--compilation-defines=DEVELOPMENT_BUILD
+--compilation-defines=ENABLE_PROFILER
+--compilation-defines=DEBUG
+--compilation-defines=TRACE
+--compilation-defines=UNITY_ASSERTIONS
 --compilation-defines=ENABLE_CUSTOM_RENDER_TEXTURE
 --compilation-defines=ENABLE_DIRECTOR
 --compilation-defines=ENABLE_LOCALIZATION
@@ -110,6 +115,7 @@ Library: lib_burst_generated
 --compilation-defines=USING_ANIMATION_MODULE
 --compilation-defines=USING_PHYSICS2D_MODULE
 --generate-link-xml=Temp\burst.link.xml
+--debug=Full
 --output=D:\Work\Demo\ForwardPlus\CustomSRP\Temp\StagingArea\tempburstlibs\armeabi-v7a\lib_burst_generated
 --root-assembly=D:\Work\Demo\ForwardPlus\CustomSRP\Temp\StagingArea\Data\Managed\UnityEngine.UI.dll
 --root-assembly=D:\Work\Demo\ForwardPlus\CustomSRP\Temp\StagingArea\Data\Managed\Unity.RenderPipelines.Core.Runtime.dll

@@ -9,10 +9,12 @@ namespace UnityEngine.Rendering.Universal
     [BurstCompatible]
     public struct GenerateClusterJob : IJobParallelFor
     {
-        public ClusterInfo ClusterInfo;
+        //pass 中计算好得clusterInfo
+        [ReadOnly] public ClusterInfo ClusterInfo;
 
 
-        public NativeArray<AABB> ResultClusterAABB;
+        public NativeArray<Vector3> clusterAABBMinArray;
+        public NativeArray<Vector3> clusterAABBMaxArray;
 
         public void Execute(int index)
         {
@@ -42,11 +44,8 @@ namespace UnityEngine.Rendering.Universal
             Vector3 aabbMin = Vector3.Min(nearMin, Vector3.Min(nearMax, Vector3.Min(farMin, farMax)));
             Vector3 aabbMax = Vector3.Max(nearMin, Vector3.Max(nearMax, Vector3.Max(farMin, farMax)));
 
-            AABB aabb = new AABB();
-            aabb.Min = aabbMin;
-            aabb.Max = aabbMax;
-            // Debug.LogError(aabbMin + "==" + aabbMax);
-            ResultClusterAABB[index] = aabb;
+            clusterAABBMinArray[index] = aabbMin;
+            clusterAABBMaxArray[index] = aabbMax;
         }
 
         /**

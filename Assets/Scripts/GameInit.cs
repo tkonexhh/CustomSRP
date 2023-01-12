@@ -7,5 +7,6 @@ public class GameInit : MonoBehaviour
     private void Awake()
     {
         Screen.sleepTimeout = SleepTimeout.NeverSleep;
+        Application.targetFrameRate = 999999;
     }
 }
