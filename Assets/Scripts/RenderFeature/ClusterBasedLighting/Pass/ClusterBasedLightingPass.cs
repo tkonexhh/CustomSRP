@@ -9,15 +9,7 @@ using UnityEngine.Rendering;
 public class ClusterBasedLightingPass : ScriptableRenderPass
 {
     ProfilingSampler m_ProfilingSampler;
-    const int CLUSTER_GRID_BLOCK_SIZE_XY = 64;//单个Block像素大小
-    const int CLUSTER_GRID_BLOCK_SIZE_Z = 5;//单个Block像素大小
-    const int MAX_NUM_POINT_LIGHT = 100;
-    private int AVERAGE_LIGHTS_PER_CLUSTER = 10;
-
-    private int CLUSTER_GRID_SIZE_X = 10;
-    private int CLUSTER_GRID_SIZE_Y = 10;
-    private int CLUSTER_GRID_SIZE_Z = 10;
-
+    ClusterBasedLightingRenderFeature.Settings m_Settings;
     bool m_Init = false;
     ClusterInfo m_ClusterInfo;
     //计算视锥AABB
@@ -42,7 +34,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
     int m_OldWidth = -1;
     int m_OldHeight = -1;
-    ClusterBasedLightingRenderFeature.Settings m_Settings;
+
 
     public ComputeBuffer clusterAABBMinBuffer => m_ClusterAABBMinBuffer;
     public ComputeBuffer clusterAABBMaxBuffer => m_ClusterAABBMaxBuffer;
@@ -51,7 +43,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
 
 
-    struct ShaderIDs
+    public struct ShaderIDs
     {
         internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrix");
         // internal static readonly int ClusterCB_ViewNear = Shader.PropertyToID("ClusterCB_ViewNear");
@@ -88,7 +80,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
     {
         m_PointLightPosRangeList.Clear();
         // 检索出全部点光源
-        for (int i = 0; i < Mathf.Min(renderingData.lightData.visibleLights.Length, MAX_NUM_POINT_LIGHT); i++)
+        for (int i = 0; i < Mathf.Min(renderingData.lightData.visibleLights.Length, ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT); i++)
         {
             if (renderingData.lightData.visibleLights[i].lightType == LightType.Point)
             {
@@ -106,8 +98,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
         //Light Buffer
         if (m_PointLightBuffer == null)
-            m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<Vector4>(MAX_NUM_POINT_LIGHT);
-
+            m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<Vector4>(ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT);
         m_PointLightBuffer.SetData(m_PointLightPosRangeList);
 
     }
@@ -141,7 +132,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
             {
                 // m_CurrentCamera = camera;
                 //当FOV clipplane 发生变化 就需要重新计算
-                m_ClusterInfo = ClusterInfo.CalcClusterInfo(ref renderingData, CLUSTER_GRID_BLOCK_SIZE_XY, CLUSTER_GRID_BLOCK_SIZE_Z);
+                m_ClusterInfo = ClusterInfo.CalcClusterInfo(ref renderingData, ClusterBasedLightDefine.CLUSTER_GRID_BLOCK_SIZE_XY, ClusterBasedLightDefine.CLUSTER_GRID_BLOCK_SIZE_Z);
                 // CalculateClusterInfo(ref renderingData);
 
                 if (m_ClusterAABBMinBuffer != null) m_ClusterAABBMinBuffer.Release();
@@ -151,7 +142,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
                 m_ClusterPointLightIndexCounterBuffer = ComputeHelper.CreateStructuredBuffer<uint>(1);
                 m_AssignTableBuffer = ComputeHelper.CreateStructuredBuffer<Vector2Int>(m_ClusterInfo.clusterDimXYZ);
-                m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_ClusterInfo.clusterDimXYZ * AVERAGE_LIGHTS_PER_CLUSTER);//预估一个格子里面不会超过20个灯光
+                m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER);//预估一个格子里面不会超过20个灯光
 
                 m_KernelOfClusterAABB = m_ComputeShader.FindKernel("ClusterAABB");
                 m_kernelAssignLightsToClusters = m_ComputeShader.FindKernel("AssignLightsToClusters");
@@ -181,7 +172,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
                 for (int i = 0; i < m_Vec2Girds.Length; i++)
                 {
                     LightIndex lightIndex = new LightIndex();
-                    lightIndex.start = i * AVERAGE_LIGHTS_PER_CLUSTER;
+                    lightIndex.start = i * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER;
                     lightIndex.count = 0;
                     // m_Vec2Girds[i] = lightIndex;
                     m_Vec2Girds[i] = new Vector2Int(lightIndex.start, lightIndex.count);
@@ -231,7 +222,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
         UpdateClusterBuffer(ref renderingData);
 
-        int threadGroups = Mathf.CeilToInt(m_ClusterInfo.clusterDimXYZ / MAX_NUM_POINT_LIGHT);
+        int threadGroups = Mathf.CeilToInt(m_ClusterInfo.clusterDimXYZ / ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT);
         commandBuffer.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBMins", m_ClusterAABBMinBuffer);
         commandBuffer.SetComputeBufferParam(m_ComputeShader, m_KernelOfClusterAABB, "RWClusterAABBMaxs", m_ClusterAABBMaxBuffer);
         var projectionMatrix = renderingData.cameraData.GetGPUProjectionMatrix();

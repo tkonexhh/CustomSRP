@@ -8,17 +8,27 @@ using UnityEngine.Rendering;
 
 public class ClusterBasedLightingJobPass : ScriptableRenderPass
 {
-    const int CLUSTER_GRID_BLOCK_SIZE_XY = 64;//单个Block像素大小
-    const int CLUSTER_GRID_BLOCK_SIZE_Z = 5;//单个Block像素大小
-
     ClusterBasedLightingRenderFeature.Settings m_Settings;
     ClusterInfo m_ClusterInfo;
 
     int m_OldWidth = -1;
     int m_OldHeight = -1;
 
+    //灯光数据
+    List<Vector4> m_PointLightPosRangeList = new List<Vector4>();//存放点光源位置和范围 xyz:pos w:range
+
+    //第一步 求Cluster
     NativeArray<Vector3> m_ClusterAABBMinArray;
     NativeArray<Vector3> m_ClusterAABBMaxArray;
+    //第二部 光源求交
+    NativeList<Vector4> m_PointLightsNativeList;
+    NativeArray<LightIndex> m_AssignTableArray;
+    NativeArray<uint> m_PointLightIndexArray;
+    Matrix4x4 m_CameraLastViewMatrix;
+
+    ComputeBuffer m_PointLightBuffer;//存放点光源参数
+    ComputeBuffer m_ClusterPointLightIndexListBuffer;//光源分配结果
+    ComputeBuffer m_AssignTableBuffer;//XYZ个  Vector2Int  x 是1D 坐标 y 是灯光个数
 
     bool m_Init = false;
 
@@ -32,6 +42,39 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
         renderPassEvent = RenderPassEvent.BeforeRendering;
     }
 
+    public void SetupLights(ref RenderingData renderingData)
+    {
+        m_PointLightPosRangeList.Clear();
+        var visibleLights = renderingData.lightData.visibleLights;
+        for (int i = 0; i < Mathf.Min(renderingData.lightData.visibleLights.Length, ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT); i++)
+        {
+            if (renderingData.lightData.visibleLights[i].lightType == LightType.Point)
+            {
+                ClusterPointLight pointLight = new ClusterPointLight();
+                pointLight.Position = renderingData.lightData.visibleLights[i].light.transform.position;
+
+                //pointLight.Position = renderingData.cameraData.camera.transform.InverseTransformPoint(pointLight.Position);
+                pointLight.Range = renderingData.lightData.visibleLights[i].range;
+                var color = renderingData.lightData.visibleLights[i].finalColor;
+                pointLight.color = new Vector3(color.r, color.g, color.b);
+                // m_PointLightPosRangeList.Add(pointLight);
+                m_PointLightPosRangeList.Add(new Vector4(pointLight.Position.x, pointLight.Position.y, pointLight.Position.z, pointLight.Range));
+            }
+        }
+
+        if (!m_PointLightsNativeList.IsCreated)
+            m_PointLightsNativeList = new NativeList<Vector4>(ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT, Allocator.Persistent);
+        m_PointLightsNativeList.Clear();
+        for (int i = 0; i < m_PointLightPosRangeList.Count; i++)
+        {
+            m_PointLightsNativeList.Add(m_PointLightPosRangeList[i]);
+        }
+
+        //Light Buffer
+        if (m_PointLightBuffer == null)
+            m_PointLightBuffer = ComputeHelper.CreateStructuredBuffer<Vector4>(ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT);
+        m_PointLightBuffer.SetData(m_PointLightPosRangeList);
+    }
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
     {
@@ -50,7 +93,7 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
             m_Init = true;
             // m_CurrentCamera = camera;
             //当FOV clipplane 发生变化 就需要重新计算
-            m_ClusterInfo = ClusterInfo.CalcClusterInfo(ref renderingData, CLUSTER_GRID_BLOCK_SIZE_XY, CLUSTER_GRID_BLOCK_SIZE_Z);
+            m_ClusterInfo = ClusterInfo.CalcClusterInfo(ref renderingData, ClusterBasedLightDefine.CLUSTER_GRID_BLOCK_SIZE_XY, ClusterBasedLightDefine.CLUSTER_GRID_BLOCK_SIZE_Z);
 
             if (m_ClusterAABBMinArray.IsCreated)
                 m_ClusterAABBMinArray.Dispose();
@@ -59,6 +102,11 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
             if (m_ClusterAABBMaxArray.IsCreated)
                 m_ClusterAABBMaxArray.Dispose();
             m_ClusterAABBMaxArray = new NativeArray<Vector3>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
+
+            m_PointLightIndexArray = new NativeArray<uint>(m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER, Allocator.Persistent);
+            m_AssignTableArray = new NativeArray<LightIndex>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
+            m_AssignTableBuffer = ComputeHelper.CreateStructuredBuffer<Vector2Int>(m_ClusterInfo.clusterDimXYZ);
+            m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER);//预估一个格子里面不会超过20个灯光
 
             //Job 计算clusterjob
             var generateClusterJob = new GenerateClusterJob()
@@ -75,13 +123,44 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
         // Debug.LogError(m_ClusterAABBMinArray.Length + "===" + m_ClusterAABBMaxArray.Length);
         //光源求交
 
+        if (ClusterBasedLightingRenderFeature.UpdateDebugPos)
+            m_CameraLastViewMatrix = renderingData.cameraData.camera.transform.localToWorldMatrix.inverse;
+        // commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_CameraLastViewMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
 
-        //DebugDraw
-        // if (ClusterBasedLightingRenderFeature.UpdateDebugPos)
-        //     m_ClusterDebugMaterial.SetMatrix("_CameraWorldMatrix", renderingData.cameraData.camera.transform.localToWorldMatrix);
+        var assignLightsToClusterJob = new AssignLightsToClustersJob()
+        {
+            ClusterInfo = m_ClusterInfo,
+            clusterAABBMinArray = m_ClusterAABBMinArray,
+            clusterAABBMaxArray = m_ClusterAABBMaxArray,
+            PointLights = m_PointLightsNativeList,
+            CameraWorldMatrix = m_CameraLastViewMatrix,
+            PointLightIndex = m_PointLightIndexArray,
+            LightAssignTable = m_AssignTableArray,
+            // MaxLightCountPerCluster=ClusterBasedLightDefine.
+        };
+        var assignHandle = assignLightsToClusterJob.Schedule(m_ClusterInfo.clusterDimXYZ, 64);
+        assignHandle.Complete();
 
-        // commandBuffer.DrawMeshInstancedIndirect(CubeMesh, 0, m_ClusterDebugMaterial, 0, m_DrawDebugClusterBuffer, 0);
+        m_ClusterPointLightIndexListBuffer.SetData(m_PointLightIndexArray);
 
+        SetShaderParameters(ref renderingData.cameraData);
+    }
+
+    void SetShaderParameters(ref CameraData cameraData)
+    {
+        //设置全部参数 用于shading
+        Shader.SetGlobalInt(ClusterBasedLightingPass.ShaderIDs.Cluster_GridCountX, m_ClusterInfo.clusterDimX);
+        Shader.SetGlobalInt(ClusterBasedLightingPass.ShaderIDs.Cluster_GridCountY, m_ClusterInfo.clusterDimY);
+        Shader.SetGlobalInt(ClusterBasedLightingPass.ShaderIDs.Cluster_GridCountZ, m_ClusterInfo.clusterDimZ);
+        // Shader.SetGlobalFloat(ShaderIDs.Cluster_ViewNear, m_ClusterInfo.zNear);
+        Shader.SetGlobalFloat(ClusterBasedLightingPass.ShaderIDs.Cluster_SizeX, m_ClusterInfo.cluster_SizeX);
+        Shader.SetGlobalFloat(ClusterBasedLightingPass.ShaderIDs.Cluster_SizeY, m_ClusterInfo.cluster_SizeY);
+        Shader.SetGlobalFloat(ClusterBasedLightingPass.ShaderIDs.Cluster_SizeZ, m_ClusterInfo.cluster_SizeZ);
+
+        Shader.SetGlobalBuffer(ClusterBasedLightingPass.ShaderIDs.Cluster_AssignTable, m_AssignTableBuffer);
+        Shader.SetGlobalBuffer(ClusterBasedLightingPass.ShaderIDs.Cluster_PointLightBuffer, m_PointLightBuffer);
+        Shader.SetGlobalBuffer(ClusterBasedLightingPass.ShaderIDs.Cluster_LightAssignTable, m_ClusterPointLightIndexListBuffer);
+        Shader.SetGlobalMatrix("_CameraWorldMatrix", cameraData.camera.transform.localToWorldMatrix);
     }
 
     void LogDebug()
@@ -101,5 +180,17 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
 
         if (m_ClusterAABBMaxArray.IsCreated)
             m_ClusterAABBMaxArray.Dispose();
+
+        if (m_PointLightsNativeList.IsCreated)
+            m_PointLightsNativeList.Dispose();
+
+        if (m_PointLightIndexArray.IsCreated)
+            m_PointLightIndexArray.Dispose();
+
+        if (m_AssignTableArray.IsCreated)
+            m_AssignTableArray.Dispose();
+
+        m_PointLightBuffer?.Release();
+        m_PointLightBuffer = null;
     }
 }

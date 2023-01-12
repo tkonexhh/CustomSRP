@@ -16,8 +16,9 @@ namespace UnityEngine.Rendering.Universal
         public int MaxLightCountPerCluster;
         public Matrix4x4 CameraWorldMatrix;
 
-        [ReadOnly] public NativeArray<AABB> InputClusterAABBs;
-        [ReadOnly] public NativeArray<ClusterPointLight> PointLights;
+        [ReadOnly] public NativeArray<Vector3> clusterAABBMinArray;
+        [ReadOnly] public NativeArray<Vector3> clusterAABBMaxArray;
+        [ReadOnly] public NativeList<Vector4> PointLights;
 
         //output
         [NativeDisableContainerSafetyRestriction]
@@ -25,47 +26,44 @@ namespace UnityEngine.Rendering.Universal
         [NativeDisableContainerSafetyRestriction]
         public NativeArray<uint> PointLightIndex;
 
+        void AppendLight(int lightIndex)
+        {
+
+        }
+
         public void Execute(int index)
         {
             int clusterIndex1D = index;
-            int startIndex = clusterIndex1D * MaxLightCountPerCluster;
-            int endIndex = startIndex;
-            AABB clusterAABB = InputClusterAABBs[clusterIndex1D];
-            for (int i = 0; i < PointLightCount; ++i)
+
+            Vector3 min = clusterAABBMinArray[clusterIndex1D];
+            Vector3 max = clusterAABBMaxArray[clusterIndex1D];
+
+            AABB clusterAABB;
+            clusterAABB.Min = min;
+            clusterAABB.Max = max;
+            for (int i = 0; i < PointLights.Length; ++i)
             {
-                ClusterPointLight pointLight = PointLights[i];
-                Vector3 pointLightPositionVS = TransformWorldToView(pointLight.Position);
+                // ClusterPointLight pointLight = PointLights[i];
+                Vector4 pointLightPosRange = PointLights[i];
+                Vector3 pointLightPositionVS = TransformWorldToView(pointLightPosRange);
                 Sphere sphere = new Sphere();
                 sphere.position = pointLightPositionVS;
-                sphere.range = pointLight.Range;
+                sphere.range = pointLightPosRange.w;
 
                 if (SphereInsideAABB(sphere, clusterAABB))
                 {
-                    PointLightIndex[endIndex++] = (uint)i;
+                    AppendLight(i);
                 }
             }
+
+            int startIndex = clusterIndex1D * MaxLightCountPerCluster;
+            int endIndex = startIndex;
 
             LightIndex lightIndex = new LightIndex();
             lightIndex.start = startIndex;
             lightIndex.count = endIndex - startIndex;
-            // if (lightIndex.count > 0)
-            //     Debug.LogError(clusterIndex1D + "==" + ComputeClusterIndex3D(clusterIndex1D) + "==" + lightIndex.start + "==" + lightIndex.count);
             LightAssignTable[clusterIndex1D] = lightIndex;
 
-            // if (index == ClusterInfo.clusterDimXYZ - 1)
-            // {
-            //     for (int i = 0; i < 10; i++)
-            //     {
-            //         int start = i;
-            //         string output = "";
-            //         for (int j = 0; j < MaxLightCountPerCluster; j++)
-            //         {
-            //             output += "|" + PointLightIndex[i * MaxLightCountPerCluster + j];
-            //         }
-            //         output += "====" + LightAssignTable[i].count;
-            //         Debug.LogError(i + "---" + output);
-            //     }
-            // }
         }
 
 

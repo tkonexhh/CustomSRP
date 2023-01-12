@@ -74,6 +74,7 @@ public class ClusterBasedLightingRenderFeature : ScriptableRendererFeature
         {
             if (settings.jobMode && m_ClusterBasedLightingJobPass != null)
             {
+                m_ClusterBasedLightingJobPass.SetupLights(ref renderingData);
                 renderer.EnqueuePass(m_ClusterBasedLightingJobPass);
             }
         }

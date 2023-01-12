@@ -4,6 +4,17 @@ using UnityEngine;
 
 namespace UnityEngine.Rendering.Universal
 {
+    public class ClusterBasedLightDefine
+    {
+        public const int CLUSTER_GRID_BLOCK_SIZE_XY = 64;//单个Block像素大小
+        public const int CLUSTER_GRID_BLOCK_SIZE_Z = 5;//单个Block像素大小
+        public const int MAX_NUM_POINT_LIGHT = 100;//最大点光源数量
+        public const int AVERAGE_LIGHTS_PER_CLUSTER = 10;//每个cluster 最大light
+
+        public const int CLUSTER_GRID_SIZE_X = 10;
+        public const int CLUSTER_GRID_SIZE_Y = 10;
+        public const int CLUSTER_GRID_SIZE_Z = 10;
+    }
 
     //当相机视锥发生改变时调用
     public struct ClusterInfo
