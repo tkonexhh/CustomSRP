@@ -98,7 +98,7 @@ public class ClusterBasedLightingRenderFeature : ScriptableRendererFeature
             {
                 if (m_DebugJobPass != null && m_ClusterBasedLightingJobPass != null)
                 {
-                    m_DebugJobPass.Setup(m_ClusterBasedLightingJobPass.clusterInfo.clusterDimXYZ, m_ClusterBasedLightingJobPass.clusterAABBMinArray, m_ClusterBasedLightingJobPass.clusterAABBMaxArray, m_ClusterBasedLightingPass.assignTableBuffer);
+                    m_DebugJobPass.Setup(m_ClusterBasedLightingJobPass.clusterInfo.clusterDimXYZ, m_ClusterBasedLightingJobPass.clusterAABBMinArray, m_ClusterBasedLightingJobPass.clusterAABBMaxArray, m_ClusterBasedLightingJobPass.assignTableBuffer);
                     renderer.EnqueuePass(m_DebugJobPass);
                 }
             }
