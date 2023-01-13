@@ -4,6 +4,7 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace UnityEngine.Rendering.Universal
 {
@@ -11,25 +12,19 @@ namespace UnityEngine.Rendering.Universal
     public struct AssignLightsToClustersJob : IJobParallelFor
     {
         //input
-        public ClusterInfo ClusterInfo;
-        public int PointLightCount;
-        public int MaxLightCountPerCluster;
-        public Matrix4x4 CameraWorldMatrix;
+        [ReadOnly] public int MaxLightCountPerCluster;
+        [ReadOnly] public Matrix4x4 CameraWorldMatrix;
 
-        [ReadOnly] public NativeArray<Vector3> clusterAABBMinArray;
-        [ReadOnly] public NativeArray<Vector3> clusterAABBMaxArray;
-        [ReadOnly] public NativeList<Vector4> PointLights;
+        [ReadOnly] public NativeArray<Vector3> clusterAABBMinArray;//AABB min
+        [ReadOnly] public NativeArray<Vector3> clusterAABBMaxArray;//AABB max
+        [ReadOnly] public NativeList<Vector4> PointLights;//全部光源的List
 
         //output
         [NativeDisableContainerSafetyRestriction]
         public NativeArray<LightIndex> LightAssignTable;
         [NativeDisableContainerSafetyRestriction]
-        public NativeArray<uint> PointLightIndex;
+        public NativeArray<uint> PointLightIndex;//一个ClusterXYZ * per cluster light 长度的容器 
 
-        void AppendLight(int lightIndex)
-        {
-
-        }
 
         public void Execute(int index)
         {
@@ -38,9 +33,15 @@ namespace UnityEngine.Rendering.Universal
             Vector3 min = clusterAABBMinArray[clusterIndex1D];
             Vector3 max = clusterAABBMaxArray[clusterIndex1D];
 
+            int startIndex = clusterIndex1D * MaxLightCountPerCluster;
+            int endIndex = startIndex;
+
             AABB clusterAABB;
             clusterAABB.Min = min;
             clusterAABB.Max = max;
+            int count = 0;
+
+            //是否可以优化这部分求交代码
             for (int i = 0; i < PointLights.Length; ++i)
             {
                 // ClusterPointLight pointLight = PointLights[i];
@@ -50,31 +51,19 @@ namespace UnityEngine.Rendering.Universal
                 sphere.position = pointLightPositionVS;
                 sphere.range = pointLightPosRange.w;
 
-                if (SphereInsideAABB(sphere, clusterAABB))
+                if (SphereInsideAABB(sphere, clusterAABB) && count < MaxLightCountPerCluster)
                 {
-                    AppendLight(i);
+                    PointLightIndex[startIndex + count] = (uint)i;
+                    count++;
                 }
             }
 
-            int startIndex = clusterIndex1D * MaxLightCountPerCluster;
-            int endIndex = startIndex;
-
             LightIndex lightIndex = new LightIndex();
-            lightIndex.start = startIndex;
-            lightIndex.count = endIndex - startIndex;
+            lightIndex.start = 0;//这个时候的lightcount还是错误的
+            lightIndex.count = count;
             LightAssignTable[clusterIndex1D] = lightIndex;
-
         }
 
-
-        Vector3Int ComputeClusterIndex3D(int clusterIndex1D)
-        {
-            int i = clusterIndex1D % ClusterInfo.clusterDimX;
-            int j = clusterIndex1D % (ClusterInfo.clusterDimX * ClusterInfo.clusterDimY) / ClusterInfo.clusterDimX;
-            int k = clusterIndex1D / (ClusterInfo.clusterDimX * ClusterInfo.clusterDimY);
-
-            return new Vector3Int(i, j, k);
-        }
 
         Vector3 TransformWorldToView(Vector3 posWorld)
         {
@@ -84,23 +73,72 @@ namespace UnityEngine.Rendering.Universal
         }
 
 
-
-
         // 球和AABB是否相交
         // Source: Real-time collision detection, Christer Ericson (2005)
         bool SphereInsideAABB(Sphere sphere, AABB aabb)
         {
-            Vector3 center = (aabb.Max + aabb.Min) * 0.5f;
-            Vector3 extents = (aabb.Max - aabb.Min) * 0.5f;
+            float3 center = (aabb.Max + aabb.Min) * 0.5f;
+            float3 extents = (aabb.Max - aabb.Min) * 0.5f;
+            float3 spherePos = sphere.position;
 
-            float x = Mathf.Max(0, Mathf.Abs(center.x - sphere.position.x) - extents.x);
-            float y = Mathf.Max(0, Mathf.Abs(center.y - sphere.position.y) - extents.y);
-            float z = Mathf.Max(0, Mathf.Abs(center.z - sphere.position.z) - extents.z);
-            Vector3 vDelta = new Vector3(x, y, z);
-            float fDistSq = Vector3.Dot(vDelta, vDelta);
+            float3 vDelta = math.max(0, math.abs(center - spherePos) - extents);
+
+            float fDistSq = math.dot(vDelta, vDelta);
             return fDistSq <= sphere.range * sphere.range;
         }
+    }
+
+    [BurstCompatible]
+    //只执行一次
+    public struct CalcStartIndexJob : IJobParallelFor
+    {
+        //output
+        [NativeDisableContainerSafetyRestriction]
+        public NativeArray<LightIndex> LightAssignTable;
 
 
+
+        public void Execute(int index)
+        {
+            int startIndex = 0;
+            int count;
+            for (int i = 0; i < LightAssignTable.Length; i++)
+            {
+                count = LightAssignTable[i].count;
+                LightIndex lightIndex;
+                lightIndex.start = startIndex;
+                lightIndex.count = count;
+                LightAssignTable[i] = lightIndex;
+                startIndex += count;
+            }
+        }
+    }
+
+
+    [BurstCompatible]
+    public struct ZipLightIndexJob : IJobParallelFor
+    {
+        [ReadOnly] public int MaxLightCountPerCluster;
+        [ReadOnly] public NativeArray<uint> PointLightIndex;//一个ClusterXYZ * per cluster light 长度的容器 
+        [ReadOnly] public NativeArray<LightIndex> LightAssignTable;
+
+        //output
+        [NativeDisableContainerSafetyRestriction]
+        public NativeArray<uint> zipedPointLightIndex;
+
+        public void Execute(int index)
+        {
+            int clusterIndex1D = index;
+
+            int originStartIndex = clusterIndex1D * MaxLightCountPerCluster;
+
+            var lightIndex = LightAssignTable[clusterIndex1D];
+            int zipedStartIndex = lightIndex.start;
+            int count = lightIndex.count;
+            for (int i = 0; i < count; i++)
+            {
+                zipedPointLightIndex[zipedStartIndex + i] = PointLightIndex[originStartIndex + i];
+            }
+        }
     }
 }

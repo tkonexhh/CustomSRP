@@ -32,7 +32,7 @@ public class ClusterBasedLightingDebugJobPass : ScriptableRenderPass
             m_ClusterDebugMaterial = new Material(shader);
     }
 
-    public void Setup(int count, NativeArray<Vector3> clusterAABBMinArray, NativeArray<Vector3> clusterAABBMaxArray)
+    public void Setup(int count, NativeArray<Vector3> clusterAABBMinArray, NativeArray<Vector3> clusterAABBMaxArray, ComputeBuffer assignTableBuffer)
     {
         if (m_ClusterDebugMaterial == null || count <= 0)
             return;
@@ -80,7 +80,9 @@ public class ClusterBasedLightingDebugJobPass : ScriptableRenderPass
 
         m_ClusterDebugMaterial.SetBuffer("ClusterAABBMins", m_ClusterAABBMinBuffer);
         m_ClusterDebugMaterial.SetBuffer("ClusterAABBMaxs", m_ClusterAABBMaxBuffer);
+        m_ClusterDebugMaterial.SetBuffer("LightAssignTable", assignTableBuffer);
         m_ClusterDebugMaterial.SetColor("_DebugColor", m_Setting.debugColor);
+        m_ClusterDebugMaterial.SetFloat("_Scale", m_Setting.debugScale);
     }
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)

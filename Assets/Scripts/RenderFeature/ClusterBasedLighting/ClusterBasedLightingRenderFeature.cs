@@ -16,6 +16,8 @@ public class ClusterBasedLightingRenderFeature : ScriptableRendererFeature
         [Header("--------Debug-------")]
         public bool enableDebug;
         public Color debugColor = new Color(1, 1, 1, 0.2f);
+        [Range(0, 1)]
+        public float debugScale = 0.5f;
     }
 
     public Settings settings;
@@ -96,7 +98,7 @@ public class ClusterBasedLightingRenderFeature : ScriptableRendererFeature
             {
                 if (m_DebugJobPass != null && m_ClusterBasedLightingJobPass != null)
                 {
-                    m_DebugJobPass.Setup(m_ClusterBasedLightingJobPass.clusterInfo.clusterDimXYZ, m_ClusterBasedLightingJobPass.clusterAABBMinArray, m_ClusterBasedLightingJobPass.clusterAABBMaxArray);
+                    m_DebugJobPass.Setup(m_ClusterBasedLightingJobPass.clusterInfo.clusterDimXYZ, m_ClusterBasedLightingJobPass.clusterAABBMinArray, m_ClusterBasedLightingJobPass.clusterAABBMaxArray, m_ClusterBasedLightingPass.assignTableBuffer);
                     renderer.EnqueuePass(m_DebugJobPass);
                 }
             }

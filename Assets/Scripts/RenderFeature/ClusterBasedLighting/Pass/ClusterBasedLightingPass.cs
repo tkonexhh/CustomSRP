@@ -179,7 +179,7 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
                 }
 
                 ClusterGenerate(ref cmd, ref renderingData);
-                LogDebug();
+                // LogDebug();
                 m_Init = true;
             }
 
@@ -191,10 +191,8 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
 
             AssignLightsToClusts(ref cmd, ref renderingData.cameraData);
 
-
+            LogDebug();
             SetShaderParameters(ref renderingData.cameraData);
-
-
 
         }
 
@@ -301,15 +299,12 @@ public class ClusterBasedLightingPass : ScriptableRenderPass
         //     Debug.LogError(tempMin[i] + "===" + tempMax[i]);
         // }
 
+        // uint[] lightIndex = new uint[m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER];
+        // m_ClusterPointLightIndexListBuffer.GetData(lightIndex);
         // for (int i = 0; i < 10; i++)
         // {
-        //     int startIndex = i;
-        //     string output = "";
-        //     for (int j = 0; j < AVERAGE_LIGHTS_PER_CLUSTER; j++)
-        //     {
-        //         output += "|" + m_PointLightIndex[i * AVERAGE_LIGHTS_PER_CLUSTER + j];
-        //     }
-        //     Debug.LogError(i + "---" + output);
+
+        //     Debug.LogError("CS:" + i + "---" + lightIndex[i]);
         // }
 
         // for (int i = 0; i < AVERAGE_LIGHTS_PER_CLUSTER * m_ClusterInfo.clusterDimXYZ; i++)

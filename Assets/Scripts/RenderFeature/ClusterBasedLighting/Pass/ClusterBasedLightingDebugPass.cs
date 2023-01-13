@@ -38,6 +38,7 @@ public class ClusterBasedLightingDebugPass : ScriptableRenderPass
         m_ClusterDebugMaterial.SetBuffer("ClusterAABBMaxs", clusterAABBMaxBuffer);
         m_ClusterDebugMaterial.SetBuffer("LightAssignTable", assignTableBuffer);
         m_ClusterDebugMaterial.SetColor("_DebugColor", m_Setting.debugColor);
+        m_ClusterDebugMaterial.SetFloat("_Scale", m_Setting.debugScale);
 
         if (m_DrawDebugClusterBuffer == null || m_OldCount != count)
         {

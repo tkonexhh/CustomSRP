@@ -39,6 +39,7 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
             StructuredBuffer<LightIndex> LightAssignTable;
             float4x4 _CameraWorldMatrix;
             float4 _DebugColor;
+            float _Scale;
 
             Varyings main_VS(Attributes input)
             {
@@ -51,7 +52,7 @@ Shader "Hidden/ClusterBasedLighting/DebugClusterAABB"
 
                 float3 center = (aabbMin + aabbMax) * 0.5;
                 float3 scale = (aabbMax - center) / 0.5;
-                scale *= 0.5;
+                scale *= _Scale;
                 input.positionOS.xyz = input.positionOS.xyz * scale + center;
                 float4 positionWS = mul(_CameraWorldMatrix, input.positionOS);
                 float4 positionCS = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_V, positionWS));

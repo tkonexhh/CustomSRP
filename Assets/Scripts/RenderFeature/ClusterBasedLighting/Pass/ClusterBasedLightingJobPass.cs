@@ -24,6 +24,10 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
     NativeList<Vector4> m_PointLightsNativeList;
     NativeArray<LightIndex> m_AssignTableArray;
     NativeArray<uint> m_PointLightIndexArray;
+
+    //
+    NativeArray<uint> m_ZipedPointLightIndexArray;
+
     Matrix4x4 m_CameraLastViewMatrix;
 
     ComputeBuffer m_PointLightBuffer;//存放点光源参数
@@ -34,6 +38,7 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
 
     public NativeArray<Vector3> clusterAABBMinArray => m_ClusterAABBMinArray;
     public NativeArray<Vector3> clusterAABBMaxArray => m_ClusterAABBMaxArray;
+    public ComputeBuffer assignTableBuffer => m_AssignTableBuffer;
     public ClusterInfo clusterInfo => m_ClusterInfo;
 
     public ClusterBasedLightingJobPass(ClusterBasedLightingRenderFeature.Settings settings)
@@ -44,7 +49,11 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
 
     public void SetupLights(ref RenderingData renderingData)
     {
+        if (!m_PointLightsNativeList.IsCreated)
+            m_PointLightsNativeList = new NativeList<Vector4>(ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT, Allocator.Persistent);
+
         m_PointLightPosRangeList.Clear();
+        m_PointLightsNativeList.Clear();
         var visibleLights = renderingData.lightData.visibleLights;
         for (int i = 0; i < Mathf.Min(renderingData.lightData.visibleLights.Length, ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT); i++)
         {
@@ -58,16 +67,11 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
                 var color = renderingData.lightData.visibleLights[i].finalColor;
                 pointLight.color = new Vector3(color.r, color.g, color.b);
                 // m_PointLightPosRangeList.Add(pointLight);
-                m_PointLightPosRangeList.Add(new Vector4(pointLight.Position.x, pointLight.Position.y, pointLight.Position.z, pointLight.Range));
+                Vector4 lightPosRange = new Vector4(pointLight.Position.x, pointLight.Position.y, pointLight.Position.z, pointLight.Range);
+                m_PointLightPosRangeList.Add(lightPosRange);
+                if (m_PointLightsNativeList.Length < ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT)
+                    m_PointLightsNativeList.Add(lightPosRange);
             }
-        }
-
-        if (!m_PointLightsNativeList.IsCreated)
-            m_PointLightsNativeList = new NativeList<Vector4>(ClusterBasedLightDefine.MAX_NUM_POINT_LIGHT, Allocator.Persistent);
-        m_PointLightsNativeList.Clear();
-        for (int i = 0; i < m_PointLightPosRangeList.Count; i++)
-        {
-            m_PointLightsNativeList.Add(m_PointLightPosRangeList[i]);
         }
 
         //Light Buffer
@@ -104,6 +108,7 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
             m_ClusterAABBMaxArray = new NativeArray<Vector3>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
 
             m_PointLightIndexArray = new NativeArray<uint>(m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER, Allocator.Persistent);
+            m_ZipedPointLightIndexArray = new NativeArray<uint>(m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER, Allocator.Persistent);
             m_AssignTableArray = new NativeArray<LightIndex>(m_ClusterInfo.clusterDimXYZ, Allocator.Persistent);
             m_AssignTableBuffer = ComputeHelper.CreateStructuredBuffer<Vector2Int>(m_ClusterInfo.clusterDimXYZ);
             m_ClusterPointLightIndexListBuffer = ComputeHelper.CreateStructuredBuffer<uint>(m_ClusterInfo.clusterDimXYZ * ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER);//预估一个格子里面不会超过20个灯光
@@ -127,21 +132,56 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
             m_CameraLastViewMatrix = renderingData.cameraData.camera.transform.localToWorldMatrix.inverse;
         // commandBuffer.SetComputeMatrixParam(m_ComputeShader, "_CameraLastViewMatrix", cameraData.camera.transform.localToWorldMatrix.inverse);
 
+        for (int i = 0; i < m_PointLightIndexArray.Length; i++)
+        {
+            m_PointLightIndexArray[i] = 0;
+            m_ZipedPointLightIndexArray[i] = 0;
+        }
+
         var assignLightsToClusterJob = new AssignLightsToClustersJob()
         {
-            ClusterInfo = m_ClusterInfo,
+            // ClusterInfo = m_ClusterInfo,
             clusterAABBMinArray = m_ClusterAABBMinArray,
             clusterAABBMaxArray = m_ClusterAABBMaxArray,
             PointLights = m_PointLightsNativeList,
             CameraWorldMatrix = m_CameraLastViewMatrix,
             PointLightIndex = m_PointLightIndexArray,
             LightAssignTable = m_AssignTableArray,
-            // MaxLightCountPerCluster=ClusterBasedLightDefine.
+            MaxLightCountPerCluster = ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER,
         };
-        var assignHandle = assignLightsToClusterJob.Schedule(m_ClusterInfo.clusterDimXYZ, 64);
-        assignHandle.Complete();
 
-        m_ClusterPointLightIndexListBuffer.SetData(m_PointLightIndexArray);
+        var assignHandle = assignLightsToClusterJob.Schedule(m_ClusterInfo.clusterDimXYZ, 64);
+        // assignHandle.Complete();
+
+        //为了job并行 这个也需要改为jobs
+        //上一步 得到了一串未压缩的数据 接下来进行行程压缩
+        //用非job计算真正startindex
+        var calcStartIndexJob = new CalcStartIndexJob()
+        {
+            LightAssignTable = m_AssignTableArray
+        };
+
+        var calcStartIndexHandle = calcStartIndexJob.Schedule(1, 1, assignHandle);
+
+
+        var zipLightIndexJob = new ZipLightIndexJob()
+        {
+            MaxLightCountPerCluster = ClusterBasedLightDefine.AVERAGE_LIGHTS_PER_CLUSTER,
+            PointLightIndex = m_PointLightIndexArray,
+            LightAssignTable = m_AssignTableArray,
+            zipedPointLightIndex = m_ZipedPointLightIndexArray,
+        };
+
+        var zipHandle = zipLightIndexJob.Schedule(m_ClusterInfo.clusterDimXYZ, 64, calcStartIndexHandle);
+        zipHandle.Complete();
+
+        // for (int i = 0; i < 10; i++)
+        // {
+        //     Debug.LogError("JOB:" + i + "---" + m_ZipedPointLightIndexArray[i]);
+        // }
+
+        m_ClusterPointLightIndexListBuffer.SetData(m_ZipedPointLightIndexArray);
+        m_AssignTableBuffer.SetData(m_AssignTableArray);
 
         SetShaderParameters(ref renderingData.cameraData);
     }
@@ -189,6 +229,9 @@ public class ClusterBasedLightingJobPass : ScriptableRenderPass
 
         if (m_AssignTableArray.IsCreated)
             m_AssignTableArray.Dispose();
+
+        if (m_ZipedPointLightIndexArray.IsCreated)
+            m_ZipedPointLightIndexArray.Dispose();
 
         m_PointLightBuffer?.Release();
         m_PointLightBuffer = null;
